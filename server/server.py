@@ -32,6 +32,15 @@ HABILIDAD_ATAQUE_BASE = {
     "descripcion": "Ataque básico (daño fijo: 40)",
 }
 
+HABILIDADES_GLOBALES_DEFAULT = [
+    {
+        "nombre":      "Ataque",
+        "formula":     "40",
+        "stat_base":   "Fuerza",
+        "descripcion": "Ataque básico (daño fijo: 40)",
+    }
+]
+
 OBJETO_POCION = {
     "nombre":      "Poción",
     "descripcion": "Restaura 40 PS",
@@ -61,6 +70,7 @@ estado = {
     "turno_actual":   0,
     "combate_activo": False,
     "mapa_activo":    None,
+    "habilidades_globales": [h.copy() for h in HABILIDADES_GLOBALES_DEFAULT],
 }
 
 clientes = {}   # websocket → { nombre, es_gm }
@@ -85,6 +95,8 @@ def cargar():
     # Asegurar campos que pueden faltar en estados guardados anteriores
     if "mapa_activo" not in estado:
         estado["mapa_activo"] = None
+    if "habilidades_globales" not in estado:
+        estado["habilidades_globales"] = [h.copy() for h in HABILIDADES_GLOBALES_DEFAULT]
     print("Estado cargado. Tokens:", list(estado["tokens"].keys()))
 
 # ── Envío ────────────────────────────────────────────────────────
@@ -101,10 +113,10 @@ async def broadcast(msg, excluir=None):
 
 # ── Estado completo ──────────────────────────────────────────────
 def paquete_estado(nombre, es_gm):
-    return {
+    paquete = {
         "tipo":                "estado_completo",
         "tokens":              estado["tokens"],
-        "mensajes":            estado["mensajes"],
+        "mensajes":            [],   # El historial no se envía; cada cliente lleva su propio log
         "tu_nombre":           nombre,
         "es_gm":               es_gm,
         "plantilla":           estado["plantilla"],
@@ -116,7 +128,11 @@ def paquete_estado(nombre, es_gm):
         "personajes":          estado["personajes"].get(nombre, []),
         "campanas":            estado["campanas"],
         "mapa_activo":         estado["mapa_activo"],
+        "habilidades_globales": estado.get("habilidades_globales", []),
     }
+    if es_gm:
+        paquete["todos_personajes"] = estado["personajes"]
+    return paquete
 
 # ── Sistema de fórmulas ──────────────────────────────────────────
 def tirar_dado(x, y):
@@ -228,16 +244,29 @@ async def manejar(ws, msg):
         # /dX  dados
         if re.match(r'^/\d*d\d+', texto, re.IGNORECASE):
             dado_str = texto[1:].split()[0]
-            try:
-                resultado, caras = tirar_simple(dado_str)
-                assert 1 < caras <= 10000
-                txt_dado = f"🎲 tiró 1{dado_str.lower()} → **{resultado}**"
-                estado["mensajes"].append({"autor":nombre,"texto":txt_dado})
-                estado["mensajes"] = estado["mensajes"][-100:]
-                guardar()
-                await broadcast({"tipo":"chat","autor":nombre,"texto":txt_dado,"es_dado":True})
-            except:
-                await enviar(ws,{"tipo":"chat","autor":"Sistema","texto":"Formato: /d20  /2d6  /d100"})
+            m_dado = re.match(r'^(\d*)d(\d+)$', dado_str, re.IGNORECASE)
+            if m_dado:
+                n     = int(m_dado.group(1)) if m_dado.group(1) else 1
+                caras = int(m_dado.group(2))
+                if 1 < caras <= 10000 and 1 <= n <= 99:
+                    resultados = [random.randint(1, caras) for _ in range(n)]
+                    total      = sum(resultados)
+                    if n == 1:
+                        txt_dado = f"🎲 tiró {dado_str} → **{total}**"
+                    else:
+                        desglose = " + ".join(str(r) for r in resultados)
+                        txt_dado = f"🎲 tiró {n}d{caras} → {desglose} = **{total}**"
+                    estado["mensajes"].append({"autor": nombre, "texto": txt_dado})
+                    estado["mensajes"] = estado["mensajes"][-100:]
+                    guardar()
+                    await broadcast({"tipo": "chat", "autor": nombre, "texto": txt_dado,
+                                     "es_dado": True, "mostrar_en_mapa": True, "resultado": total})
+                else:
+                    await enviar(ws, {"tipo": "chat", "autor": "Sistema",
+                                      "texto": "Formato: /d20  /2d6  /d100"})
+            else:
+                await enviar(ws, {"tipo": "chat", "autor": "Sistema",
+                                  "texto": "Formato: /d20  /2d6  /d100"})
             return
 
         # /mode gm <pwd>
@@ -249,7 +278,9 @@ async def manejar(ws, msg):
                 await enviar(ws,{"tipo":"modo_cambiado","es_gm":True,
                                  "plantilla":estado["plantilla"],
                                  "plantillas_guardadas":estado["plantillas_guardadas"],
-                                 "plantilla_bloqueada":estado["plantilla_bloqueada"]})
+                                 "plantilla_bloqueada":estado["plantilla_bloqueada"],
+                                 "todos_personajes":estado["personajes"],
+                                 "habilidades_globales":estado.get("habilidades_globales",[])})
                 await broadcast({"tipo":"chat","autor":"Sistema",
                                  "texto":f"👑 {nombre} es ahora el Game Master."})
             else:
@@ -348,14 +379,25 @@ async def manejar(ws, msg):
     # ─── DESPLEGAR TOKEN EN MAPA ─────────────────────────────────
     elif tipo == "desplegar_token":
         nom_p = msg.get("nombre_personaje")
-        lista = estado["personajes"].get(nombre,[])
-        p = next((x for x in lista if x["nombre"]==nom_p), None)
+        p = None
+        owner_name = nombre
+        if es_gm:
+            # GM puede desplegar personajes de cualquier jugador
+            for jug, plist in estado["personajes"].items():
+                found = next((x for x in plist if x["nombre"] == nom_p), None)
+                if found:
+                    p = found
+                    owner_name = jug
+                    break
+        else:
+            lista = estado["personajes"].get(nombre, [])
+            p = next((x for x in lista if x["nombre"] == nom_p), None)
         if not p: return
-        token_id = f"{nombre}_{nom_p}"
+        token_id = f"{owner_name}_{nom_p}"
         estado["tokens"][token_id] = {
             "token_id":   token_id,
             "personaje":  nom_p,
-            "owner":      nombre,
+            "owner":      owner_name,
             "x": msg.get("x",300), "y": msg.get("y",300),
             "color":      p["color"],
             "clase":      p["clase"],
@@ -598,6 +640,69 @@ async def manejar(ws, msg):
                              "turno_actual":estado["turno_actual"],
                              "turno":estado["turno"],
                              "texto_sistema":f"⏭️ Turno de {nom_sig}."})
+
+    # ─── GM: MÚSICA SINCRONIZADA ─────────────────────────────────
+    elif tipo == "gm_cambiar_musica" and es_gm:
+        archivo = msg.get("archivo")
+        await broadcast({"tipo": "musica_cambiada", "archivo": archivo})
+
+    # ─── GM: HABILIDADES GLOBALES ────────────────────────────────
+    elif tipo == "gm_crear_habilidad" and es_gm:
+        hab = msg.get("habilidad", {})
+        if not hab.get("nombre"): return
+        # Evitar duplicados
+        if any(h["nombre"] == hab["nombre"] for h in estado["habilidades_globales"]): return
+        estado["habilidades_globales"].append({
+            "nombre":      hab.get("nombre", ""),
+            "formula":     hab.get("formula", "0"),
+            "stat_base":   hab.get("stat_base", ""),
+            "descripcion": hab.get("descripcion", ""),
+        })
+        guardar()
+        await broadcast({"tipo": "habilidades_globales_actualizadas",
+                         "habilidades_globales": estado["habilidades_globales"]})
+
+    elif tipo == "gm_borrar_habilidad" and es_gm:
+        nombre_hab = msg.get("nombre_habilidad")
+        if nombre_hab == "Ataque": return  # "Ataque" no se puede eliminar
+        estado["habilidades_globales"] = [h for h in estado["habilidades_globales"]
+                                           if h["nombre"] != nombre_hab]
+        guardar()
+        await broadcast({"tipo": "habilidades_globales_actualizadas",
+                         "habilidades_globales": estado["habilidades_globales"]})
+
+    # ─── PERSONAJE: AÑADIR HABILIDAD ────────────────────────────
+    elif tipo == "añadir_habilidad_personaje":
+        if not nombre: return
+        nom_p   = msg.get("nombre_personaje")
+        nom_hab = msg.get("nombre_habilidad")
+        lista   = estado["personajes"].get(nombre, [])
+        p       = next((x for x in lista if x["nombre"] == nom_p), None)
+        if not p: return
+        # Verificar que la habilidad existe globalmente
+        global_hab = next((h for h in estado["habilidades_globales"]
+                           if h["nombre"] == nom_hab), None)
+        if not global_hab: return
+        # Evitar duplicados
+        if any(h["nombre"] == nom_hab for h in p["habilidades"]): return
+        p["habilidades"].append(global_hab.copy())
+        guardar()
+        await enviar(ws, {"tipo": "personaje_actualizado", "personaje": p,
+                          "personajes": estado["personajes"].get(nombre, [])})
+
+    # ─── PERSONAJE: QUITAR HABILIDAD ────────────────────────────
+    elif tipo == "quitar_habilidad_personaje":
+        if not nombre: return
+        nom_p   = msg.get("nombre_personaje")
+        nom_hab = msg.get("nombre_habilidad")
+        if nom_hab == "Ataque": return  # "Ataque" no se puede olvidar
+        lista = estado["personajes"].get(nombre, [])
+        p     = next((x for x in lista if x["nombre"] == nom_p), None)
+        if not p: return
+        p["habilidades"] = [h for h in p["habilidades"] if h["nombre"] != nom_hab]
+        guardar()
+        await enviar(ws, {"tipo": "personaje_actualizado", "personaje": p,
+                          "personajes": estado["personajes"].get(nombre, [])})
 
 # ── Ciclo de vida ────────────────────────────────────────────────
 async def conexion(ws):

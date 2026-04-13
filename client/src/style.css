@@ -248,3 +248,94 @@ textarea:focus{border-color:var(--accent)}
 .ctx-item.peligro{color:#e88}
 .ctx-item.peligro:hover{background:rgba(192,57,43,.2)}
 .ctx-sep{height:1px;background:var(--border);margin:4px 0}
+
+/* ══════════════════════════════════════════════════════════════
+   SUBMENÚ CONTEXTUAL
+══════════════════════════════════════════════════════════════ */
+.ctx-item-sub{justify-content:space-between}
+.ctx-arrow{opacity:.6;font-size:14px}
+.ctx-item.ctx-vacio{color:var(--muted);cursor:default}
+.ctx-item.ctx-vacio:hover{background:transparent}
+
+/* ══════════════════════════════════════════════════════════════
+   OVERLAY DE DADO EN MAPA
+══════════════════════════════════════════════════════════════ */
+.dado-overlay{
+  position:fixed;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(1);
+  z-index:900;
+  text-align:center;
+  pointer-events:none;
+  transition:opacity .5s ease, transform .5s ease;
+}
+.dado-overlay.oculto{display:none}
+.dado-overlay-nombre{
+  font-size:16px;font-weight:600;
+  margin-bottom:4px;
+  text-shadow:0 0 10px currentColor;
+}
+.dado-overlay-resultado{
+  font-size:72px;font-weight:900;
+  color:#fff;
+  line-height:1;
+  background:rgba(0,0,0,.55);
+  padding:12px 28px;
+  border-radius:20px;
+  backdrop-filter:blur(4px);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FICHA FLOTANTE (modal arrastrable)
+══════════════════════════════════════════════════════════════ */
+.ficha-flotante{
+  position:fixed;
+  width:360px;
+  max-width:95vw;
+  max-height:85vh;
+  background:var(--bg1);
+  border:1px solid var(--border2);
+  border-radius:14px;
+  box-shadow:0 16px 48px rgba(0,0,0,.6);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.ficha-flotante-header{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  cursor:move;
+  user-select:none;
+}
+.ff-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.ff-titulo{font-weight:700;font-size:14px;flex:1}
+.ff-cerrar{flex-shrink:0}
+.ficha-flotante-tabs{
+  display:flex;gap:0;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+}
+.ficha-tab{
+  flex:1;padding:8px;font-size:12px;font-weight:600;
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;transition:color .15s,border-color .15s;
+}
+.ficha-tab.activo{color:var(--accent);border-bottom-color:var(--accent)}
+.ficha-tab:hover:not(.activo){color:var(--text)}
+.ficha-flotante-body{flex:1;overflow-y:auto;padding:12px}
+.ff-tab-content{min-height:60px}
+.ff-info-top{display:flex;gap:12px;margin-bottom:10px}
+.ff-portrait{width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid var(--border2);flex-shrink:0}
+.ff-portrait-ph{width:72px;height:72px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);text-align:center;flex-shrink:0}
+.ff-info-datos{flex:1;min-width:0}
+.ff-nombre{font-size:16px;font-weight:700;margin-bottom:2px}
+.ff-clase{font-size:12px;color:var(--muted);margin-bottom:4px}
+.ff-backstory{font-size:11px;color:var(--muted);max-height:50px;overflow-y:auto;line-height:1.4}
+.ff-hab-picker{margin-top:8px;background:var(--bg2);border-radius:8px;padding:8px;max-height:180px;overflow-y:auto}
+
+/* ══════════════════════════════════════════════════════════════
+   GM HABILIDADES
+══════════════════════════════════════════════════════════════ */
+.gm-input[type="textarea"],.gm-input textarea{resize:vertical}
