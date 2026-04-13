@@ -139,12 +139,17 @@ def tirar_dado(x, y):
     """Tira x dados de y caras. Devuelve suma."""
     return sum(random.randint(1, y) for _ in range(x))
 
-def evaluar_formula(formula: str, stats: dict) -> tuple[int, str]:
+def evaluar_formula(formula: str, stats_at: dict, stats_def: dict = None) -> tuple[int, str]:
     """
-    Evalúa una fórmula como 'Fuerza/4 + 1d20'.
+    Evalúa una fórmula como 'Fuerza/4 + 1d20' o '(aFuerza*2)-(oResistencia*0.5)'.
     Devuelve (resultado_int, detalle_str).
+    - Prefijo 'a' (case-insensitive): stat del atacante.
+    - Prefijo 'o' (case-insensitive): stat del defensor/objetivo.
+    - Sin prefijo: stat del atacante (compatibilidad hacia atrás).
     El servidor es el único que ejecuta esto.
     """
+    if stats_def is None:
+        stats_def = {}
     expr = formula.strip()
     detalle_partes = []
 
@@ -158,16 +163,30 @@ def evaluar_formula(formula: str, stats: dict) -> tuple[int, str]:
 
     expr_eval = re.sub(r'(\d*)d(\d+)', reemplazar_dado, expr, flags=re.IGNORECASE)
 
-    # Reemplazar nombres de stats → valores numéricos
-    for nombre_stat, valor in sorted(stats.items(), key=lambda x: -len(x[0])):
-        patron = re.compile(re.escape(nombre_stat), re.IGNORECASE)
+    # Reemplazar stats con prefijo 'a' (atacante) o 'o' (objetivo/defensor)
+    # Ordenar por longitud descendente para evitar reemplazos parciales
+    for nombre_stat, valor in sorted(stats_at.items(), key=lambda x: -len(x[0])):
+        patron = re.compile(r'(?<![a-zA-Z0-9_])a' + re.escape(nombre_stat), re.IGNORECASE)
+        if patron.search(expr_eval):
+            expr_eval = patron.sub(str(int(valor)), expr_eval)
+            detalle_partes.append(f"a{nombre_stat}={valor}")
+
+    for nombre_stat, valor in sorted(stats_def.items(), key=lambda x: -len(x[0])):
+        patron = re.compile(r'(?<![a-zA-Z0-9_])o' + re.escape(nombre_stat), re.IGNORECASE)
+        if patron.search(expr_eval):
+            expr_eval = patron.sub(str(int(valor)), expr_eval)
+            detalle_partes.append(f"o{nombre_stat}={valor}")
+
+    # Reemplazar stats sin prefijo → atacante (compatibilidad hacia atrás)
+    for nombre_stat, valor in sorted(stats_at.items(), key=lambda x: -len(x[0])):
+        patron = re.compile(r'(?<![a-zA-Z0-9_])' + re.escape(nombre_stat) + r'(?![a-zA-Z0-9_])', re.IGNORECASE)
         if patron.search(expr_eval):
             expr_eval = patron.sub(str(int(valor)), expr_eval)
             detalle_partes.append(f"{nombre_stat}={valor}")
 
     # Evaluar expresión aritmética segura
     try:
-        # Solo permitir números y operadores
+        # Solo permitir números y operadores (incluidos paréntesis)
         if re.search(r'[^0-9+\-*/().\s]', expr_eval):
             raise ValueError(f"Carácter inválido en fórmula: {expr_eval}")
         resultado = int(eval(expr_eval, {"__builtins__": {}}, {}))
@@ -338,6 +357,11 @@ async def manejar(ws, msg):
         await enviar(ws,{"tipo":"personaje_creado","personaje":p,
                          "personajes":estado["personajes"][nombre]})
         await enviar(ws,{"tipo":"chat","autor":"Sistema","texto":f"✅ Personaje '{nom_p}' creado."})
+        # Notificar al GM con la lista actualizada de todos los personajes
+        for ws_gm, info in clientes.items():
+            if info.get("es_gm"):
+                await enviar(ws_gm,{"tipo":"todos_personajes_actualizados",
+                                    "todos_personajes":estado["personajes"]})
 
     # ─── PERSONAJES: EDITAR ─────────────────────────────────────
     elif tipo == "editar_personaje":
@@ -490,8 +514,9 @@ async def manejar(ws, msg):
 
         # Evaluar fórmula EN EL SERVIDOR
         formula  = hab.get("formula","40")
-        stats_at = ta.get("stats",{})
-        daño, detalle = evaluar_formula(formula, stats_at)
+        stats_at  = ta.get("stats",{})
+        stats_def = td.get("stats",{})
+        daño, detalle = evaluar_formula(formula, stats_at, stats_def)
         daño = max(0, daño)
 
         # Aplicar daño

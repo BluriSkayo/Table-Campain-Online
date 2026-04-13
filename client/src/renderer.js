@@ -318,6 +318,10 @@ function procesar(msg) {
       }
       break;
 
+    case "todos_personajes_actualizados":
+      if(esGM && msg.todos_personajes) todosPersonajesGM = msg.todos_personajes;
+      break;
+
     case "lista_personajes":
       misPersonajes = msg.personajes || [];
       renderMisPersonajes();
@@ -439,6 +443,28 @@ function iniciarCanvas() {
   document.addEventListener("click", () => {
     ctxMenu.classList.add("oculto");
     $("ctx-submenu").classList.add("oculto");
+  });
+
+  // Drag & Drop — soltar personaje desde lista al canvas
+  canvas.addEventListener("dragover", e => {
+    if (dragPersonajeNombre) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      canvas.style.cursor = "copy";
+    }
+  });
+  canvas.addEventListener("dragleave", () => {
+    if (!dragPersonajeNombre) return;
+    canvas.style.cursor = "crosshair";
+  });
+  canvas.addEventListener("drop", e => {
+    e.preventDefault();
+    canvas.style.cursor = "crosshair";
+    const nombre = dragPersonajeNombre || e.dataTransfer.getData("text/plain");
+    if (!nombre) return;
+    const {x, y} = canvasXY(e);
+    enviar({tipo: "desplegar_token", nombre_personaje: nombre, x: Math.round(x), y: Math.round(y)});
+    dragPersonajeNombre = null;
   });
 }
 
@@ -610,18 +636,20 @@ function onContextMenu(e){
   submenuEl.classList.add("oculto");
 
   if(!tid){
-    // Área vacía — "Desplegar token" con submenú
-    const personajesDisponibles = esGM
-      ? Object.values(todosPersonajesGM).flat()
-      : misPersonajes;
-    const subitems = personajesDisponibles.map(p=>({
-      label: p.nombre,
-      fn: ()=>{
-        enviar({tipo:"desplegar_token",nombre_personaje:p.nombre,
-                x:Math.round(cx),y:Math.round(cy)});
-      }
-    }));
-    agregarCtxItemConSubmenu("📌 Desplegar token", subitems, e);
+    // Área vacía — "Desplegar token" con submenú (subitems evaluados en hover para usar datos actualizados)
+    const getSubitems = () => {
+      const personajesDisponibles = esGM
+        ? Object.values(todosPersonajesGM).flat()
+        : misPersonajes;
+      return personajesDisponibles.map(p=>({
+        label: p.nombre,
+        fn: ()=>{
+          enviar({tipo:"desplegar_token",nombre_personaje:p.nombre,
+                  x:Math.round(cx),y:Math.round(cy)});
+        }
+      }));
+    };
+    agregarCtxItemConSubmenu("📌 Desplegar token", getSubitems, e);
 
     // "Mover aquí" si hay token seleccionado del jugador
     if(tokenSeleccionado && tokens[tokenSeleccionado]){
@@ -693,11 +721,13 @@ function agregarCtxItemConSubmenu(label, subitems, originalEvent){
 
   div.addEventListener("mouseenter", ()=>{
     submenuItems.innerHTML="";
-    if(!subitems.length){
+    // subitems puede ser un array o una función que devuelve un array
+    const items = typeof subitems === "function" ? subitems() : subitems;
+    if(!items.length){
       const empty=document.createElement("div"); empty.className="ctx-item ctx-vacio";
       empty.textContent="Sin personajes"; submenuItems.appendChild(empty);
     } else {
-      subitems.forEach(item=>{
+      items.forEach(item=>{
         const d=document.createElement("div"); d.className="ctx-item";
         d.textContent=item.label;
         d.addEventListener("click",()=>{
@@ -1041,6 +1071,7 @@ function renderMisPersonajes(){
     });
     listaMisPersonajes.appendChild(div);
   });
+  habilitarDragPersonajes();
 }
 
 function mostrarFichaPersonaje(p){
@@ -1735,6 +1766,66 @@ btnVolverIni.addEventListener("click",()=>{
 function mostrarErrorUnion(txt){
   unionError.textContent=txt; unionError.classList.remove("oculto");
   setTimeout(()=>unionError.classList.add("oculto"),4000);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TECLA ESCAPE — cierra modales/menús en orden de prioridad
+// ─────────────────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+
+  // 1. Menú contextual
+  if (!ctxMenu.classList.contains("oculto")) {
+    ctxMenu.classList.add("oculto");
+    $("ctx-submenu").classList.add("oculto");
+    return;
+  }
+  // 2. Modal de ataque
+  if (!modalAtaque.classList.contains("oculto")) {
+    modalAtaque.classList.add("oculto");
+    return;
+  }
+  // 3. Modal de estado
+  if (!modalEstado.classList.contains("oculto")) {
+    modalEstado.classList.add("oculto");
+    return;
+  }
+  // 4. Modal de personaje
+  if (!modalPersonaje.classList.contains("oculto")) {
+    modalPersonaje.classList.add("oculto");
+    return;
+  }
+  // 5. Ficha flotante más reciente (mayor z-index)
+  const fichas = Array.from(document.querySelectorAll(".ficha-flotante"));
+  if (fichas.length) {
+    const topFicha = fichas.reduce((a, b) =>
+      (parseInt(a.style.zIndex) || 0) >= (parseInt(b.style.zIndex) || 0) ? a : b
+    );
+    topFicha.remove();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// DRAG & DROP — personajes desde lista al canvas del mapa
+// ─────────────────────────────────────────────────────────────────
+let dragPersonajeNombre = null;
+
+function habilitarDragPersonajes() {
+  listaMisPersonajes.querySelectorAll(".personaje-item").forEach(div => {
+    div.setAttribute("draggable", "true");
+    div.addEventListener("dragstart", e => {
+      dragPersonajeNombre = div.querySelector(".pers-nombre")?.textContent?.trim() || null;
+      if (dragPersonajeNombre) {
+        e.dataTransfer.effectAllowed = "copy";
+        e.dataTransfer.setData("text/plain", dragPersonajeNombre);
+        div.classList.add("drag-activo");
+      }
+    });
+    div.addEventListener("dragend", () => {
+      div.classList.remove("drag-activo");
+      dragPersonajeNombre = null;
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────

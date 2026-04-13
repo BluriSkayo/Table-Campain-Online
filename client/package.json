@@ -10,7 +10,7 @@
     "appId": "com.mesarol.app",
     "productName": "Mesa de Rol",
     "directories": { "output": "../release" },
-    "win": { "target": "nsis" },
+    "win": { "target": "nsis", "icon": "src/icon.ico" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
     "files": ["main.js", "src/**/*"]
   },

@@ -103,9 +103,10 @@ textarea:focus{border-color:var(--accent)}
 .cmd-seccion-titulo{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:6px 0 4px}
 
 /* Personaje item en lista */
-.personaje-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s;margin-bottom:4px}
+.personaje-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);cursor:grab;transition:border-color .15s;margin-bottom:4px}
 .personaje-item:hover{border-color:var(--border2)}
 .personaje-item.activo{border-color:var(--accent)}
+.personaje-item.drag-activo{opacity:.5;border-color:var(--accent);cursor:grabbing}
 .pers-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .pers-nombre{font-size:13px;font-weight:600;flex:1}
 .pers-clase{font-size:10px;color:var(--muted)}
