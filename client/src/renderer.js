@@ -36,6 +36,9 @@ let targetVol = 0.7, targetVolSfx = 0.7;
 // ── DOM ──────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
+/** Escape HTML special characters to prevent XSS in innerHTML */
+function esc(str){ return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+
 // Inicio
 const pInicio        = $("pantalla-inicio");
 const listaCampanas  = $("lista-campanas");
@@ -757,8 +760,8 @@ function abrirFichaFlotante(p){
 
   modal.innerHTML=`
     <div class="ficha-flotante-header">
-      <div class="ff-dot" style="background:${p.color}"></div>
-      <span class="ff-titulo">${p.nombre}</span>
+      <div class="ff-dot" style="background:${esc(p.color)}"></div>
+      <span class="ff-titulo">${esc(p.nombre)}</span>
       <button class="btn-icono ff-cerrar">✕</button>
     </div>
     <div class="ficha-flotante-tabs">
@@ -766,8 +769,8 @@ function abrirFichaFlotante(p){
       <button class="ficha-tab" data-tab="habs">Habilidades</button>
     </div>
     <div class="ficha-flotante-body">
-      <div class="ff-tab-content" id="${id}-info"></div>
-      <div class="ff-tab-content oculto" id="${id}-habs"></div>
+      <div class="ff-tab-content" id="${esc(id)}-info"></div>
+      <div class="ff-tab-content oculto" id="${esc(id)}-habs"></div>
     </div>`;
 
   modal.querySelector(".ff-cerrar").addEventListener("click",()=>modal.remove());
@@ -830,7 +833,7 @@ function rellenarTabInfo(modal, id, p){
   let statsHtml="";
   plantilla.forEach(s=>{
     const val=p.stats?.[s.nombre]??"-";
-    statsHtml+=`<div class="fp-stat"><div class="fp-stat-val">${val}</div><div class="fp-stat-nom">${s.nombre}</div></div>`;
+    statsHtml+=`<div class="fp-stat"><div class="fp-stat-val">${esc(val)}</div><div class="fp-stat-nom">${esc(s.nombre)}</div></div>`;
   });
 
   // Objetos
@@ -842,8 +845,8 @@ function rellenarTabInfo(modal, id, p){
     const btnDis=miToken?"":"disabled title='Despliega tu token primero'";
     const tid=miToken?miToken[0]:"";
     objetosHtml+=`<div class="objeto-item">
-      <div class="objeto-info"><div class="objeto-nombre">${obj.nombre}</div><div class="objeto-desc">${obj.descripcion||""}</div></div>
-      <button class="objeto-usar" data-tid="${tid}" data-obj="${obj.nombre}" ${btnDis}>Usar</button>
+      <div class="objeto-info"><div class="objeto-nombre">${esc(obj.nombre)}</div><div class="objeto-desc">${esc(obj.descripcion||"")}</div></div>
+      <button class="objeto-usar" data-tid="${esc(tid)}" data-obj="${esc(obj.nombre)}" ${btnDis}>Usar</button>
     </div>`;
   });
 
@@ -851,15 +854,15 @@ function rellenarTabInfo(modal, id, p){
     <div class="ff-info-top">
       ${portraitHtml}
       <div class="ff-info-datos">
-        <div class="ff-nombre">${p.nombre}</div>
-        <div class="ff-clase">${p.clase||"Aventurero"}</div>
-        ${p.backstory?`<div class="ff-backstory">${p.backstory}</div>`:""}
+        <div class="ff-nombre">${esc(p.nombre)}</div>
+        <div class="ff-clase">${esc(p.clase||"Aventurero")}</div>
+        ${p.backstory?`<div class="ff-backstory">${esc(p.backstory)}</div>`:""}
       </div>
     </div>
-    <div class="barra-bg"><div class="barra-fill verde" style="width:${pctHp*100}%;background:${colHp}"></div></div>
-    <div class="barra-txt"><span>HP</span><span>${hp} / ${hpMax}</span></div>
+    <div class="barra-bg"><div class="barra-fill verde" style="width:${pctHp*100}%;background:${esc(colHp)}"></div></div>
+    <div class="barra-txt"><span>HP</span><span>${esc(hp)} / ${esc(hpMax)}</span></div>
     <div class="barra-bg"><div class="barra-fill azul" style="width:${pctMp*100}%"></div></div>
-    <div class="barra-txt"><span>MP</span><span>${mp} / ${mpMax}</span></div>
+    <div class="barra-txt"><span>MP</span><span>${esc(mp)} / ${esc(mpMax)}</span></div>
     <div class="fp-stats-grid" style="margin:8px 0">${statsHtml}</div>
     ${objetosHtml}
     <div class="ficha-acciones" style="margin-top:8px">
@@ -892,7 +895,7 @@ function renderHabilidadesFlotante(cont, p){
   const lista=document.createElement("div");
   habs.forEach(h=>{
     const row=document.createElement("div"); row.className="hab-item";
-    row.innerHTML=`<div><div class="hab-nombre">${h.nombre}</div><div class="hab-formula">📐 ${h.formula}</div></div>`;
+    row.innerHTML=`<div><div class="hab-nombre">${esc(h.nombre)}</div><div class="hab-formula">📐 ${esc(h.formula)}</div></div>`;
     if(h.nombre!=="Ataque"){
       const btnOlv=document.createElement("button"); btnOlv.className="gm-stat-del"; btnOlv.textContent="✕";
       btnOlv.title="Olvidar habilidad";
@@ -922,7 +925,7 @@ function renderHabilidadesFlotante(cont, p){
     const yaT=new Set(habs.map(h=>h.nombre));
     habilidadesGlobales.filter(h=>!yaT.has(h.nombre)&&h.nombre.toLowerCase().includes(filtro.toLowerCase())).forEach(h=>{
       const d=document.createElement("div"); d.className="ctx-item";
-      d.innerHTML=`<b>${h.nombre}</b> <span style="color:var(--muted);font-size:11px">${h.formula}</span>`;
+      d.innerHTML=`<b>${esc(h.nombre)}</b> <span style="color:var(--muted);font-size:11px">${esc(h.formula)}</span>`;
       d.addEventListener("click",()=>{
         enviar({tipo:"añadir_habilidad_personaje",nombre_personaje:p.nombre,nombre_habilidad:h.nombre});
         picker.classList.add("oculto");
@@ -1350,8 +1353,8 @@ function renderGMHabilidades(){
   listaEl.innerHTML="";
   habilidadesGlobales.forEach(h=>{
     const row=document.createElement("div"); row.className="gm-stat-row";
-    row.innerHTML=`<span>${h.nombre}</span>
-      <span style="color:var(--muted);font-size:11px">${h.formula}</span>`;
+    row.innerHTML=`<span>${esc(h.nombre)}</span>
+      <span style="color:var(--muted);font-size:11px">${esc(h.formula)}</span>`;
     if(h.nombre!=="Ataque"){
       const btn=document.createElement("button"); btn.className="gm-stat-del"; btn.textContent="✕";
       btn.addEventListener("click",()=>{
@@ -1422,7 +1425,7 @@ function escribirLog(autor, texto){
     const nomCamp=campanaActual?.nombre||"local";
     const archivo=path.join(LOGS_DIR,`${nomCamp}_${fechaStr}.log`);
     fs.appendFileSync(archivo,`[${horaStr}] ${autor}: ${texto}\n`,"utf8");
-  } catch(e){}
+  } catch(e){ console.warn("Error escribiendo log:",e.message); }
 }
 
 // ─────────────────────────────────────────────────────────────────
