@@ -5,6 +5,7 @@ const fs   = require("fs");
 
 const WS_URL        = "ws://localhost:8765";
 const RESOURCES     = path.join(__dirname, "..", "..", "resources");
+const LOGS_DIR      = path.join(__dirname, "..", "..", "logs");
 const MUSIC_DIR     = path.join(RESOURCES, "music");
 const TOKENS_DIR    = path.join(RESOURCES, "characters", "tokens");
 const PORTRAITS_DIR = path.join(RESOURCES, "characters", "portraits");
@@ -15,6 +16,8 @@ let ws, miNombre = "", esGM = false;
 let tokens = {}, plantilla = [], plantillasGuardadas = {}, plantillaBloqueada = false;
 let turno = [], turnoActual = 0, combateActivo = false;
 let misPersonajes = [];
+let todosPersonajesGM = {};   // solo para el GM: owner → [lista]
+let habilidadesGlobales = []; // habilidades globales del servidor
 let personajeActivo = null;   // objeto personaje seleccionado
 let tokenSeleccionado = null; // token_id seleccionado en tablero
 let modoEdicion = "crear";    // "crear" | "editar"
@@ -23,6 +26,7 @@ let tokenDefensorId = null;
 let campanaActual = null;
 let mapaActivo = null;
 let mapaImg = null;
+let fichaZIndex = 1000;       // z-index base para fichas flotantes
 
 // ── Audio ─────────────────────────────────────────────────────────
 let audioCtx = null, audioSource = null, audioGain = null;
@@ -68,7 +72,6 @@ const fpMpBarra          = $("fp-mp-barra");
 const fpMpTxt            = $("fp-mp-txt");
 const fpStatsGrid        = $("fp-stats-grid");
 const btnCrearPersonaje  = $("btn-crear-personaje");
-const btnDesplegarToken  = $("btn-desplegar-token");
 const btnEditarPersonaje = $("btn-editar-personaje");
 const btnModEstado       = $("btn-mod-estado");
 const fpCerrar           = $("fp-cerrar");
@@ -259,6 +262,8 @@ function procesar(msg) {
       combateActivo      = msg.combate_activo || false;
       misPersonajes      = msg.personajes || [];
       mapaActivo         = msg.mapa_activo || null;
+      habilidadesGlobales= msg.habilidades_globales || [];
+      if (esGM && msg.todos_personajes) todosPersonajesGM = msg.todos_personajes;
 
       tbNombre.textContent  = miNombre;
       tbCampana.textContent = campanaActual?.nombre || "local";
@@ -267,7 +272,7 @@ function procesar(msg) {
         if(esGM) el.classList.remove("oculto");
       });
 
-      msg.mensajes.forEach(m => agregarChat(m.autor, m.texto));
+      // El historial no se carga (cada cliente lleva su propio log)
       pInicio.classList.add("oculto");
       sala.classList.remove("oculto");
       panelUnion.classList.add("oculto");
@@ -279,6 +284,7 @@ function procesar(msg) {
       renderMisPersonajes();
       renderGMPlantilla();
       renderGMPlantillasGuardadas();
+      if(esGM) renderGMHabilidades();
       break;
 
     case "modo_cambiado":
@@ -289,7 +295,9 @@ function procesar(msg) {
         plantilla           = msg.plantilla            || plantilla;
         plantillasGuardadas = msg.plantillas_guardadas || plantillasGuardadas;
         plantillaBloqueada  = msg.plantilla_bloqueada  || false;
-        renderGMPlantilla(); renderGMPlantillasGuardadas();
+        if(msg.todos_personajes) todosPersonajesGM = msg.todos_personajes;
+        if(msg.habilidades_globales) habilidadesGlobales = msg.habilidades_globales;
+        renderGMPlantilla(); renderGMPlantillasGuardadas(); renderGMHabilidades();
       } else {
         tbRol.classList.add("oculto");
         document.querySelectorAll(".gm-only").forEach(el => el.classList.add("oculto"));
@@ -347,7 +355,19 @@ function procesar(msg) {
       if(msg.tokens) tokens = msg.tokens;
       agregarChat(msg.autor, msg.texto,
         msg.autor==="Sistema"?"sistema":msg.es_dado?"dado":"normal");
+      if(msg.mostrar_en_mapa && msg.resultado !== undefined){
+        const colorRoller = Object.values(tokens).find(t=>t.owner===msg.autor)?.color || "#fff";
+        mostrarOverlayDado(msg.autor, msg.resultado, colorRoller);
+      }
       dibujar(); break;
+
+    case "musica_cambiada":
+      manejarMusicaCambiada(msg.archivo); break;
+
+    case "habilidades_globales_actualizadas":
+      habilidadesGlobales = msg.habilidades_globales || [];
+      if(esGM) renderGMHabilidades();
+      break;
 
     case "combate_iniciado":
       tokens=msg.tokens; turno=msg.turno; turnoActual=msg.turno_actual; combateActivo=true;
@@ -413,7 +433,10 @@ function iniciarCanvas() {
   canvas.addEventListener("mousemove", onMove);
   canvas.addEventListener("mouseup",   onUp);
   canvas.addEventListener("contextmenu", onContextMenu);
-  document.addEventListener("click", () => ctxMenu.classList.add("oculto"));
+  document.addEventListener("click", () => {
+    ctxMenu.classList.add("oculto");
+    $("ctx-submenu").classList.add("oculto");
+  });
 }
 
 function ajustar() {
@@ -497,6 +520,7 @@ function dibujar() {
 // INTERACCIÓN CANVAS
 // ─────────────────────────────────────────────────────────────────
 let arrastrando=null, offsetDrag={x:0,y:0}, mousoDown=false, mouseMoved=false;
+let lastClickTime=0, lastClickTid=null;
 
 function tokenBajo(ex,ey){
   const r=canvas.getBoundingClientRect();
@@ -544,8 +568,22 @@ function onUp(e){
     }
     arrastrando=null; canvas.style.cursor="crosshair";
   } else {
-    // Click en vacío
-    tokenSeleccionado=null; ocultarGMSel(); dibujar();
+    const now=Date.now();
+    const tid=tokenBajo(e.clientX,e.clientY);
+    if(tid && tokens[tid]){
+      const t=tokens[tid];
+      if(t.owner!==miNombre && now-lastClickTime<300 && lastClickTid===tid){
+        // Doble clic en token enemigo → atacar
+        abrirModalAtaque(tid);
+        lastClickTime=0; lastClickTid=null;
+      } else {
+        lastClickTime=now; lastClickTid=tid;
+        tokenSeleccionado=null; ocultarGMSel(); dibujar();
+      }
+    } else {
+      lastClickTime=0; lastClickTid=null;
+      tokenSeleccionado=null; ocultarGMSel(); dibujar();
+    }
   }
   mousoDown=false;
 }
@@ -563,11 +601,26 @@ function onContextMenu(e){
   e.preventDefault();
   const {x: cx, y: cy} = canvasXY(e);
   const tid=tokenBajo(e.clientX,e.clientY);
+  const submenuEl = $("ctx-submenu");
 
   ctxItems.innerHTML="";
+  submenuEl.classList.add("oculto");
 
   if(!tid){
-    // Área vacía — ofrecer "Mover aquí" si hay token seleccionado del jugador
+    // Área vacía — "Desplegar token" con submenú
+    const personajesDisponibles = esGM
+      ? Object.values(todosPersonajesGM).flat()
+      : misPersonajes;
+    const subitems = personajesDisponibles.map(p=>({
+      label: p.nombre,
+      fn: ()=>{
+        enviar({tipo:"desplegar_token",nombre_personaje:p.nombre,
+                x:Math.round(cx),y:Math.round(cy)});
+      }
+    }));
+    agregarCtxItemConSubmenu("📌 Desplegar token", subitems, e);
+
+    // "Mover aquí" si hay token seleccionado del jugador
     if(tokenSeleccionado && tokens[tokenSeleccionado]){
       const tsel=tokens[tokenSeleccionado];
       if(tsel.owner===miNombre || esGM){
@@ -577,14 +630,13 @@ function onContextMenu(e){
           enviar({tipo:"mover_token",token_id:tokenSeleccionado,x:nx,y:ny});
           dibujar();
         });
-        ctxMenu.style.left=`${Math.min(e.clientX,window.innerWidth-200)}px`;
-        ctxMenu.style.top =`${Math.min(e.clientY,window.innerHeight-200)}px`;
-        ctxMenu.classList.remove("oculto");
-        e.stopPropagation();
-        return;
       }
     }
-    ctxMenu.classList.add("oculto");
+
+    ctxMenu.style.left=`${Math.min(e.clientX,window.innerWidth-220)}px`;
+    ctxMenu.style.top =`${Math.min(e.clientY,window.innerHeight-200)}px`;
+    ctxMenu.classList.remove("oculto");
+    e.stopPropagation();
     return;
   }
 
@@ -614,7 +666,7 @@ function onContextMenu(e){
     },"peligro");
   }
 
-  ctxMenu.style.left=`${Math.min(e.clientX, window.innerWidth-200)}px`;
+  ctxMenu.style.left=`${Math.min(e.clientX, window.innerWidth-220)}px`;
   ctxMenu.style.top =`${Math.min(e.clientY, window.innerHeight-200)}px`;
   ctxMenu.classList.remove("oculto");
   e.stopPropagation();
@@ -622,20 +674,59 @@ function onContextMenu(e){
 
 function agregarCtxItem(label,fn,cls=""){
   const div=document.createElement("div"); div.className=`ctx-item ${cls}`;
-  div.textContent=label; div.addEventListener("click",()=>{fn();ctxMenu.classList.add("oculto");});
+  div.textContent=label; div.addEventListener("click",()=>{fn();ctxMenu.classList.add("oculto"); $("ctx-submenu").classList.add("oculto");});
   ctxItems.appendChild(div);
 }
 function agregarCtxSep(){
   const sep=document.createElement("div"); sep.className="ctx-sep"; ctxItems.appendChild(sep);
 }
 
+function agregarCtxItemConSubmenu(label, subitems, originalEvent){
+  const div=document.createElement("div"); div.className="ctx-item ctx-item-sub";
+  div.innerHTML=`${label} <span class="ctx-arrow">›</span>`;
+
+  const submenuEl = $("ctx-submenu");
+  const submenuItems = $("ctx-submenu-items");
+
+  div.addEventListener("mouseenter", ()=>{
+    submenuItems.innerHTML="";
+    if(!subitems.length){
+      const empty=document.createElement("div"); empty.className="ctx-item ctx-vacio";
+      empty.textContent="Sin personajes"; submenuItems.appendChild(empty);
+    } else {
+      subitems.forEach(item=>{
+        const d=document.createElement("div"); d.className="ctx-item";
+        d.textContent=item.label;
+        d.addEventListener("click",()=>{
+          item.fn();
+          ctxMenu.classList.add("oculto");
+          submenuEl.classList.add("oculto");
+        });
+        submenuItems.appendChild(d);
+      });
+    }
+    const rect=div.getBoundingClientRect();
+    submenuEl.style.left=`${rect.right}px`;
+    submenuEl.style.top =`${rect.top}px`;
+    submenuEl.classList.remove("oculto");
+  });
+
+  div.addEventListener("mouseleave",(e)=>{
+    if(!submenuEl.contains(e.relatedTarget)){
+      submenuEl.classList.add("oculto");
+    }
+  });
+
+  submenuEl.addEventListener("mouseleave",()=>{ submenuEl.classList.add("oculto"); }, {once:false});
+
+  ctxItems.appendChild(div);
+}
+
 // Ver datos completos del token propio
 function abrirFichaToken(tid){
   const t=tokens[tid];
-  // Aquí se podría abrir un modal con todos los datos
-  // Por ahora mostramos en el panel izquierdo si el personaje coincide
   const p=misPersonajes.find(x=>x.nombre===t.personaje);
-  if(p){ personajeActivo=p; mostrarFichaPersonaje(p); cambiarTab("personajes"); }
+  if(p){ personajeActivo=p; abrirFichaFlotante(p); }
 }
 
 // Ver datos visibles del token enemigo
@@ -649,6 +740,202 @@ function abrirFichaTokenVisible(tid){
     else txt+=`${campo}:${t.stats?.[campo]??'?'} `;
   });
   agregarChat("Sistema",txt.trim(),"sistema");
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FICHA DE PERSONAJE FLOTANTE (modal arrastrable con pestañas)
+// ─────────────────────────────────────────────────────────────────
+function abrirFichaFlotante(p){
+  const id=`ficha-flotante-${p.nombre.replace(/[^a-zA-Z0-9]/g,'-')}`;
+  const existente=document.getElementById(id);
+  if(existente){ existente.style.zIndex=++fichaZIndex; return; }
+
+  const modal=document.createElement("div");
+  modal.id=id;
+  modal.className="ficha-flotante";
+  modal.style.cssText=`position:fixed;top:${80+Math.random()*60|0}px;left:${200+Math.random()*80|0}px;z-index:${++fichaZIndex};`;
+
+  modal.innerHTML=`
+    <div class="ficha-flotante-header">
+      <div class="ff-dot" style="background:${p.color}"></div>
+      <span class="ff-titulo">${p.nombre}</span>
+      <button class="btn-icono ff-cerrar">✕</button>
+    </div>
+    <div class="ficha-flotante-tabs">
+      <button class="ficha-tab activo" data-tab="info">Información</button>
+      <button class="ficha-tab" data-tab="habs">Habilidades</button>
+    </div>
+    <div class="ficha-flotante-body">
+      <div class="ff-tab-content" id="${id}-info"></div>
+      <div class="ff-tab-content oculto" id="${id}-habs"></div>
+    </div>`;
+
+  modal.querySelector(".ff-cerrar").addEventListener("click",()=>modal.remove());
+
+  // Tabs
+  modal.querySelectorAll(".ficha-tab").forEach(tab=>{
+    tab.addEventListener("click",()=>{
+      modal.querySelectorAll(".ficha-tab").forEach(t=>t.classList.remove("activo"));
+      modal.querySelectorAll(".ff-tab-content").forEach(c=>c.classList.add("oculto"));
+      tab.classList.add("activo");
+      modal.querySelector(`#${id}-${tab.dataset.tab}`).classList.remove("oculto");
+    });
+  });
+
+  // Traer al frente al hacer clic
+  modal.addEventListener("mousedown",()=>{ modal.style.zIndex=++fichaZIndex; });
+
+  // Arrastrar
+  hacerArrastrable(modal, modal.querySelector(".ficha-flotante-header"));
+
+  document.body.appendChild(modal);
+  rellenarTabInfo(modal, id, p);
+  rellenarTabHabilidades(modal, id, p);
+}
+
+function hacerArrastrable(elem, handle){
+  let ox=0, oy=0;
+  handle.addEventListener("mousedown",e=>{
+    if(e.target.closest(".btn-icono")) return; // no arrastrar al cerrar
+    e.preventDefault();
+    ox=e.clientX-elem.offsetLeft;
+    oy=e.clientY-elem.offsetTop;
+    function onMove(e){ elem.style.left=(e.clientX-ox)+"px"; elem.style.top=(e.clientY-oy)+"px"; }
+    function onUp(){ document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); }
+    document.addEventListener("mousemove",onMove);
+    document.addEventListener("mouseup",onUp);
+  });
+}
+
+function rellenarTabInfo(modal, id, p){
+  const cont=modal.querySelector(`#${id}-info`);
+  const hp=p.stats?.HP??0, hpMax=p.stats?.HP_max??1;
+  const mp=p.stats?.MP??0, mpMax=p.stats?.MP_max??1;
+  const pctHp=Math.max(0,Math.min(1,hp/hpMax));
+  const pctMp=Math.max(0,Math.min(1,mp/mpMax));
+  const colHp=pctHp>.5?"#27ae60":pctHp>.25?"#f39c12":"#c0392b";
+
+  // Retrato
+  let portraitHtml="";
+  const posibles=[
+    path.join(PORTRAITS_DIR,`${p.nombre}.png`),
+    path.join(PORTRAITS_DIR,`${p.nombre}.jpg`),
+    path.join(PORTRAITS_DIR,`${p.nombre}.webp`),
+  ];
+  const portFile=posibles.find(f=>fs.existsSync(f));
+  if(portFile) portraitHtml=`<img class="ff-portrait" src="${portFile}" alt="Retrato"/>`;
+  else portraitHtml=`<div class="ff-portrait-ph">Sin retrato</div>`;
+
+  // Stats de plantilla
+  let statsHtml="";
+  plantilla.forEach(s=>{
+    const val=p.stats?.[s.nombre]??"-";
+    statsHtml+=`<div class="fp-stat"><div class="fp-stat-val">${val}</div><div class="fp-stat-nom">${s.nombre}</div></div>`;
+  });
+
+  // Objetos
+  let objetosHtml=`<div class="cmd-seccion-titulo" style="margin-top:8px">🎒 Objetos</div>`;
+  const objetos=p.objetos||[];
+  if(!objetos.length) objetosHtml+=`<div class="cmd-vacio">Sin objetos</div>`;
+  else objetos.forEach(obj=>{
+    const miToken=Object.entries(tokens).find(([,t])=>t.owner===miNombre&&t.personaje===p.nombre);
+    const btnDis=miToken?"":"disabled title='Despliega tu token primero'";
+    const tid=miToken?miToken[0]:"";
+    objetosHtml+=`<div class="objeto-item">
+      <div class="objeto-info"><div class="objeto-nombre">${obj.nombre}</div><div class="objeto-desc">${obj.descripcion||""}</div></div>
+      <button class="objeto-usar" data-tid="${tid}" data-obj="${obj.nombre}" ${btnDis}>Usar</button>
+    </div>`;
+  });
+
+  cont.innerHTML=`
+    <div class="ff-info-top">
+      ${portraitHtml}
+      <div class="ff-info-datos">
+        <div class="ff-nombre">${p.nombre}</div>
+        <div class="ff-clase">${p.clase||"Aventurero"}</div>
+        ${p.backstory?`<div class="ff-backstory">${p.backstory}</div>`:""}
+      </div>
+    </div>
+    <div class="barra-bg"><div class="barra-fill verde" style="width:${pctHp*100}%;background:${colHp}"></div></div>
+    <div class="barra-txt"><span>HP</span><span>${hp} / ${hpMax}</span></div>
+    <div class="barra-bg"><div class="barra-fill azul" style="width:${pctMp*100}%"></div></div>
+    <div class="barra-txt"><span>MP</span><span>${mp} / ${mpMax}</span></div>
+    <div class="fp-stats-grid" style="margin:8px 0">${statsHtml}</div>
+    ${objetosHtml}
+    <div class="ficha-acciones" style="margin-top:8px">
+      <button class="cmd-btn azul ff-btn-editar">✏️ Editar</button>
+      <button class="cmd-btn naranja ff-btn-estado">💊 Estado</button>
+    </div>`;
+
+  cont.querySelectorAll(".objeto-usar").forEach(btn=>{
+    btn.addEventListener("click",()=>{ if(btn.dataset.tid) usarObjeto(btn.dataset.tid,btn.dataset.obj); });
+  });
+  cont.querySelector(".ff-btn-editar").addEventListener("click",()=>{
+    abrirModalPersonaje("editar",p);
+  });
+  cont.querySelector(".ff-btn-estado").addEventListener("click",()=>{
+    const miToken=Object.entries(tokens).find(([,t])=>t.owner===miNombre&&t.personaje===p.nombre);
+    if(!miToken){ agregarChat("Sistema","Despliega primero tu token.","sistema"); return; }
+    abrirModificarEstadoToken(miToken[0]);
+  });
+}
+
+function rellenarTabHabilidades(modal, id, p){
+  const cont=modal.querySelector(`#${id}-habs`);
+  renderHabilidadesFlotante(cont, p);
+}
+
+function renderHabilidadesFlotante(cont, p){
+  cont.innerHTML="";
+  const habs=p.habilidades||[];
+
+  const lista=document.createElement("div");
+  habs.forEach(h=>{
+    const row=document.createElement("div"); row.className="hab-item";
+    row.innerHTML=`<div><div class="hab-nombre">${h.nombre}</div><div class="hab-formula">📐 ${h.formula}</div></div>`;
+    if(h.nombre!=="Ataque"){
+      const btnOlv=document.createElement("button"); btnOlv.className="gm-stat-del"; btnOlv.textContent="✕";
+      btnOlv.title="Olvidar habilidad";
+      btnOlv.addEventListener("click",()=>{
+        enviar({tipo:"quitar_habilidad_personaje",nombre_personaje:p.nombre,nombre_habilidad:h.nombre});
+      });
+      row.appendChild(btnOlv);
+    }
+    lista.appendChild(row);
+  });
+  cont.appendChild(lista);
+
+  // Botón añadir habilidad
+  const btnAdd=document.createElement("button"); btnAdd.className="cmd-btn azul"; btnAdd.textContent="＋ Añadir habilidad";
+  btnAdd.style.marginTop="8px";
+  cont.appendChild(btnAdd);
+
+  const picker=document.createElement("div"); picker.className="ff-hab-picker oculto";
+  const searchInput=document.createElement("input"); searchInput.className="gm-input"; searchInput.placeholder="Buscar habilidad...";
+  picker.appendChild(searchInput);
+  const pickerList=document.createElement("div");
+  picker.appendChild(pickerList);
+  cont.appendChild(picker);
+
+  function renderPicker(filtro=""){
+    pickerList.innerHTML="";
+    const yaT=new Set(habs.map(h=>h.nombre));
+    habilidadesGlobales.filter(h=>!yaT.has(h.nombre)&&h.nombre.toLowerCase().includes(filtro.toLowerCase())).forEach(h=>{
+      const d=document.createElement("div"); d.className="ctx-item";
+      d.innerHTML=`<b>${h.nombre}</b> <span style="color:var(--muted);font-size:11px">${h.formula}</span>`;
+      d.addEventListener("click",()=>{
+        enviar({tipo:"añadir_habilidad_personaje",nombre_personaje:p.nombre,nombre_habilidad:h.nombre});
+        picker.classList.add("oculto");
+      });
+      pickerList.appendChild(d);
+    });
+    if(!pickerList.children.length){
+      pickerList.innerHTML=`<div class="cmd-vacio">No hay habilidades disponibles</div>`;
+    }
+  }
+
+  btnAdd.addEventListener("click",()=>{ picker.classList.toggle("oculto"); renderPicker(); });
+  searchInput.addEventListener("input",()=>renderPicker(searchInput.value));
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -747,7 +1034,7 @@ function renderMisPersonajes(){
       </div>`;
     div.addEventListener("click",()=>{
       personajeActivo=p; renderMisPersonajes();
-      mostrarFichaPersonaje(p); renderHabilidades(p); renderObjetos(p);
+      abrirFichaFlotante(p);
     });
     listaMisPersonajes.appendChild(div);
   });
@@ -914,19 +1201,9 @@ btnGuardarPers.addEventListener("click",()=>{
 
 fpCerrar.addEventListener("click",()=>fichaPersonaje.classList.add("oculto"));
 
-// Desplegar token
-btnDesplegarToken.addEventListener("click",()=>{
-  if(!personajeActivo) return;
-  const cx=canvas?.width/2||400, cy=canvas?.height/2||300;
-  enviar({tipo:"desplegar_token",nombre_personaje:personajeActivo.nombre,
-          x:Math.round(cx+(Math.random()-.5)*200),y:Math.round(cy+(Math.random()-.5)*150)});
-  agregarChat("Sistema",`Token de ${personajeActivo.nombre} desplegado en el mapa.`,"sistema");
-});
-
-// Modificar estado (desde botón panel)
+// Modificar estado (desde botón panel — mantenido por compatibilidad)
 btnModEstado.addEventListener("click",()=>{
   if(!personajeActivo) return;
-  // Buscar token del personaje activo
   const miToken=Object.entries(tokens).find(([,t])=>t.owner===miNombre&&t.personaje===personajeActivo.nombre);
   if(!miToken){agregarChat("Sistema","Despliega primero tu token.","sistema"); return;}
   abrirModificarEstadoToken(miToken[0]);
@@ -1067,6 +1344,58 @@ document.querySelector('[data-panel="gm"]').addEventListener("click",()=>{
   if(esGM) renderGMMapaLista();
 });
 
+// GM: habilidades globales
+function renderGMHabilidades(){
+  const listaEl=$("gm-habilidades-lista"); if(!listaEl) return;
+  listaEl.innerHTML="";
+  habilidadesGlobales.forEach(h=>{
+    const row=document.createElement("div"); row.className="gm-stat-row";
+    row.innerHTML=`<span>${h.nombre}</span>
+      <span style="color:var(--muted);font-size:11px">${h.formula}</span>`;
+    if(h.nombre!=="Ataque"){
+      const btn=document.createElement("button"); btn.className="gm-stat-del"; btn.textContent="✕";
+      btn.addEventListener("click",()=>{
+        if(confirm(`¿Eliminar la habilidad "${h.nombre}"?`))
+          enviar({tipo:"gm_borrar_habilidad",nombre_habilidad:h.nombre});
+      });
+      row.appendChild(btn);
+    }
+    listaEl.appendChild(row);
+  });
+  if(!habilidadesGlobales.length){
+    listaEl.innerHTML=`<div class="cmd-vacio">Sin habilidades globales</div>`;
+  }
+}
+
+const btnNuevaHabilidad=$("btn-nueva-habilidad");
+const gmFormHabilidad=$("gm-form-habilidad");
+if(btnNuevaHabilidad){
+  btnNuevaHabilidad.addEventListener("click",()=>{
+    gmFormHabilidad.classList.remove("oculto"); btnNuevaHabilidad.classList.add("oculto");
+  });
+}
+const ghfOk=$("ghf-ok");
+const ghfCancelar=$("ghf-cancelar");
+if(ghfOk){
+  ghfOk.addEventListener("click",()=>{
+    const nom=$("ghf-nombre").value.trim(); if(!nom){alert("Escribe un nombre."); return;}
+    enviar({tipo:"gm_crear_habilidad",habilidad:{
+      nombre: nom,
+      formula: $("ghf-formula").value.trim()||"0",
+      stat_base: $("ghf-stat-base").value.trim()||"",
+      descripcion: $("ghf-desc").value.trim()||"",
+    }});
+    $("ghf-nombre").value=""; $("ghf-formula").value="";
+    $("ghf-stat-base").value=""; $("ghf-desc").value="";
+    gmFormHabilidad.classList.add("oculto"); btnNuevaHabilidad.classList.remove("oculto");
+  });
+}
+if(ghfCancelar){
+  ghfCancelar.addEventListener("click",()=>{
+    gmFormHabilidad.classList.add("oculto"); btnNuevaHabilidad.classList.remove("oculto");
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────
 // UI COMBATE
 // ─────────────────────────────────────────────────────────────────
@@ -1079,6 +1408,21 @@ function actualizarUI(){
     const nom=tokens[turno[turnoActual]]?.personaje||turno[turnoActual];
     tbTurno.textContent=`⚔️ Turno de ${nom}`;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SISTEMA DE LOGS LOCALES
+// ─────────────────────────────────────────────────────────────────
+function escribirLog(autor, texto){
+  try {
+    if(!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR,{recursive:true});
+    const ahora=new Date();
+    const fechaStr=ahora.toISOString().slice(0,10);
+    const horaStr=ahora.toTimeString().slice(0,8);
+    const nomCamp=campanaActual?.nombre||"local";
+    const archivo=path.join(LOGS_DIR,`${nomCamp}_${fechaStr}.log`);
+    fs.appendFileSync(archivo,`[${horaStr}] ${autor}: ${texto}\n`,"utf8");
+  } catch(e){}
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1102,6 +1446,7 @@ function agregarChat(autor,texto,tipo="normal"){
   }
   $("chat-msgs").appendChild(div);
   $("chat-msgs").scrollTop=$("chat-msgs").scrollHeight;
+  escribirLog(autor, texto);
 }
 
 function enviarChat(){
@@ -1110,6 +1455,33 @@ function enviarChat(){
 }
 $("chat-enviar").addEventListener("click",enviarChat);
 $("chat-input").addEventListener("keydown",e=>{if(e.key==="Enter")enviarChat();});
+
+// ─────────────────────────────────────────────────────────────────
+// OVERLAY DE DADO EN MAPA
+// ─────────────────────────────────────────────────────────────────
+let overlayTimeout=null;
+function mostrarOverlayDado(autor, resultado, color){
+  const overlay=$("dado-overlay");
+  const nomEl=$("dado-overlay-nombre");
+  const resEl=$("dado-overlay-resultado");
+  if(!overlay) return;
+
+  nomEl.textContent=autor;
+  resEl.textContent=resultado;
+  resEl.style.textShadow=`0 0 20px ${color}, 0 0 40px ${color}`;
+  nomEl.style.color=color;
+
+  overlay.style.opacity="1";
+  overlay.style.transform="scale(1)";
+  overlay.classList.remove("oculto");
+
+  if(overlayTimeout) clearTimeout(overlayTimeout);
+  overlayTimeout=setTimeout(()=>{
+    overlay.style.opacity="0";
+    overlay.style.transform="scale(1.15)";
+    setTimeout(()=>overlay.classList.add("oculto"), 500);
+  }, 2000);
+}
 
 // ─────────────────────────────────────────────────────────────────
 // DADOS (panel)
@@ -1146,9 +1518,33 @@ function renderMusicaLista(){
   musicaLista.forEach((m,i)=>{
     const div=document.createElement("div"); div.className=`musica-item${i===musicaIndice&&musicaReproduciendo?" activo":""}`;
     div.innerHTML=`<span class="musica-item-ico">🎵</span>${m.nombre}`;
-    div.addEventListener("dblclick",()=>reproducirMusica(i));
+    div.addEventListener("dblclick",()=>{
+      if(esGM){
+        // El GM sincroniza la música con todos los clientes
+        enviar({tipo:"gm_cambiar_musica",archivo:m.nombre});
+      } else {
+        reproducirMusica(i);
+      }
+    });
     musicaListaEl.appendChild(div);
   });
+}
+
+// Manejar música sincronizada desde el GM
+function manejarMusicaCambiada(archivo){
+  if(!archivo){
+    detenerMusica();
+    agregarChat("Sistema","🎵 El GM detuvo la música.","sistema");
+    return;
+  }
+  const entry=musicaLista.find(m=>m.nombre===archivo);
+  if(entry){
+    const idx=musicaLista.indexOf(entry);
+    reproducirMusica(idx);
+  } else {
+    detenerMusica();
+    agregarChat("Sistema",`🎵 No tienes el archivo: ${archivo}`,"sistema");
+  }
 }
 
 function reproducirMusica(idx){

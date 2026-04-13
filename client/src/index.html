@@ -123,7 +123,6 @@
           </div>
           <div id="fp-stats-grid"></div>
           <div class="ficha-acciones">
-            <button class="cmd-btn verde" id="btn-desplegar-token">🗺️ Desplegar token</button>
             <button class="cmd-btn azul" id="btn-editar-personaje">✏️ Editar</button>
           </div>
           <div class="ficha-acciones">
@@ -268,6 +267,21 @@
         <div id="mapa-vacio" class="cmd-vacio">No hay imágenes en resources/maps/</div>
         <button class="cmd-btn" id="btn-quitar-mapa" style="background:var(--bg3);color:var(--muted)">✕ Sin mapa</button>
 
+        <!-- Gestionar Habilidades -->
+        <div class="cmd-seccion-titulo" style="margin-top:12px">Gestionar Habilidades</div>
+        <div id="gm-habilidades-lista"></div>
+        <button class="cmd-btn azul" id="btn-nueva-habilidad">＋ Nueva habilidad</button>
+        <div id="gm-form-habilidad" class="gm-form oculto">
+          <input class="gm-input" id="ghf-nombre" placeholder="Nombre (ej: Golpe Fuerte)"/>
+          <input class="gm-input" id="ghf-formula" placeholder="Fórmula (ej: Fuerza/2 + 1d20)"/>
+          <input class="gm-input" id="ghf-stat-base" placeholder="Stat base (ej: Fuerza)"/>
+          <textarea class="gm-input" id="ghf-desc" placeholder="Descripción" rows="2" style="resize:vertical"></textarea>
+          <div class="gm-fila">
+            <button class="cmd-btn verde" id="ghf-ok">✓ Crear</button>
+            <button class="cmd-btn" id="ghf-cancelar">✕</button>
+          </div>
+        </div>
+
       </div>
 
     </div><!-- /col-comandos -->
@@ -391,6 +405,17 @@
 <!-- Menú contextual (click derecho en token) -->
 <div id="ctx-menu" class="ctx-menu oculto">
   <div id="ctx-items"></div>
+</div>
+
+<!-- Submenú contextual (para Desplegar token) -->
+<div id="ctx-submenu" class="ctx-menu oculto">
+  <div id="ctx-submenu-items"></div>
+</div>
+
+<!-- Overlay de dado (muestra resultado en mapa para todos) -->
+<div id="dado-overlay" class="dado-overlay oculto">
+  <div id="dado-overlay-nombre" class="dado-overlay-nombre"></div>
+  <div id="dado-overlay-resultado" class="dado-overlay-resultado"></div>
 </div>
 
 <script src="renderer.js"></script>
