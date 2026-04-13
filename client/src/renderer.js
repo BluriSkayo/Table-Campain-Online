@@ -1060,6 +1060,7 @@ function renderMisPersonajes(){
   misPersonajes.forEach(p=>{
     const div=document.createElement("div");
     div.className=`personaje-item${personajeActivo?.nombre===p.nombre?" activo":""}`;
+    div.dataset.nombrePersonaje = p.nombre;
     div.innerHTML=`<div class="pers-dot" style="background:${p.color}"></div>
       <div class="flex1">
         <div class="pers-nombre">${p.nombre}</div>
@@ -1798,10 +1799,8 @@ document.addEventListener("keydown", e => {
   // 5. Ficha flotante más reciente (mayor z-index)
   const fichas = Array.from(document.querySelectorAll(".ficha-flotante"));
   if (fichas.length) {
-    const topFicha = fichas.reduce((a, b) =>
-      (parseInt(a.style.zIndex) || 0) >= (parseInt(b.style.zIndex) || 0) ? a : b
-    );
-    topFicha.remove();
+    const fichasConZ = fichas.map(f => ({ el: f, z: parseInt(f.style.zIndex) || 0 }));
+    fichasConZ.reduce((a, b) => a.z >= b.z ? a : b).el.remove();
   }
 });
 
@@ -1814,7 +1813,7 @@ function habilitarDragPersonajes() {
   listaMisPersonajes.querySelectorAll(".personaje-item").forEach(div => {
     div.setAttribute("draggable", "true");
     div.addEventListener("dragstart", e => {
-      dragPersonajeNombre = div.querySelector(".pers-nombre")?.textContent?.trim() || null;
+      dragPersonajeNombre = div.dataset.nombrePersonaje || null;
       if (dragPersonajeNombre) {
         e.dataTransfer.effectAllowed = "copy";
         e.dataTransfer.setData("text/plain", dragPersonajeNombre);
