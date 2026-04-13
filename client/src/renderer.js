@@ -1347,57 +1347,135 @@ document.querySelector('[data-panel="gm"]').addEventListener("click",()=>{
   if(esGM) renderGMMapaLista();
 });
 
-// GM: habilidades globales
-function renderGMHabilidades(){
-  const listaEl=$("gm-habilidades-lista"); if(!listaEl) return;
-  listaEl.innerHTML="";
+// GM: habilidades globales — ventana flotante
+let ghFlotanteEditando = null; // nombre original si está editando
+
+function abrirGestionHabilidades(){
+  const WIN_ID = "gestion-habilidades-flotante";
+  const existente = document.getElementById(WIN_ID);
+  if(existente){ existente.style.zIndex=++fichaZIndex; return; }
+
+  const modal = document.createElement("div");
+  modal.id = WIN_ID;
+  modal.className = "ficha-flotante";
+  modal.style.cssText = `position:fixed;top:80px;left:${200+Math.random()*60|0}px;z-index:${++fichaZIndex};width:450px;`;
+
+  modal.innerHTML = `
+    <div class="ficha-flotante-header">
+      <span class="ff-titulo">⚡ Gestionar Habilidades</span>
+      <button class="btn-icono ff-cerrar">✕</button>
+    </div>
+    <div class="ficha-flotante-body" style="padding:12px;overflow-y:auto;max-height:75vh;">
+      <div class="cmd-seccion-titulo" style="margin-bottom:8px">Habilidades Globales</div>
+      <div id="ghf-lista-global"></div>
+      <div class="cmd-seccion-titulo" style="margin-top:14px;margin-bottom:8px" id="ghf-form-titulo">Crear Habilidad</div>
+      <div class="gm-form" style="display:block;">
+        <input class="gm-input" id="ghf-nombre" placeholder="Nombre (ej: Golpe Fuerte)"/>
+        <input class="gm-input" id="ghf-formula" placeholder="Fórmula (ej: Fuerza/4 + 1d20)" value="Fuerza/4 + 1d20"/>
+        <input class="gm-input" id="ghf-stat-base" placeholder="Stat base (ej: Fuerza)"/>
+        <textarea class="gm-input" id="ghf-desc" placeholder="Descripción" rows="2" style="resize:vertical"></textarea>
+        <div class="gm-fila">
+          <button class="cmd-btn verde" id="ghf-ok">✓ Crear habilidad</button>
+          <button class="cmd-btn" id="ghf-cancelar">✕ Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+
+  modal.querySelector(".ff-cerrar").addEventListener("click",()=>{
+    modal.remove();
+    ghFlotanteEditando = null;
+  });
+
+  // Traer al frente al hacer clic
+  modal.addEventListener("mousedown",()=>{ modal.style.zIndex=++fichaZIndex; });
+
+  // Arrastrar
+  hacerArrastrable(modal, modal.querySelector(".ficha-flotante-header"));
+
+  // Botón Crear/Guardar
+  modal.querySelector("#ghf-ok").addEventListener("click",()=>{
+    const nom = modal.querySelector("#ghf-nombre").value.trim();
+    if(!nom){ alert("Escribe un nombre."); return; }
+    const hab = {
+      nombre:      nom,
+      formula:     modal.querySelector("#ghf-formula").value.trim() || "Fuerza/4 + 1d20",
+      stat_base:   modal.querySelector("#ghf-stat-base").value.trim() || "",
+      descripcion: modal.querySelector("#ghf-desc").value.trim() || "",
+    };
+    if(ghFlotanteEditando !== null){
+      enviar({tipo:"gm_editar_habilidad", nombre_original: ghFlotanteEditando, habilidad: hab});
+    } else {
+      enviar({tipo:"gm_crear_habilidad", habilidad: hab});
+    }
+    limpiarFormGHF(modal);
+  });
+
+  // Botón Cancelar edición
+  modal.querySelector("#ghf-cancelar").addEventListener("click",()=>limpiarFormGHF(modal));
+
+  document.body.appendChild(modal);
+  renderGHFLista(modal);
+}
+
+function limpiarFormGHF(modal){
+  ghFlotanteEditando = null;
+  modal.querySelector("#ghf-nombre").value = "";
+  modal.querySelector("#ghf-formula").value = "Fuerza/4 + 1d20";
+  modal.querySelector("#ghf-stat-base").value = "";
+  modal.querySelector("#ghf-desc").value = "";
+  modal.querySelector("#ghf-form-titulo").textContent = "Crear Habilidad";
+  modal.querySelector("#ghf-ok").textContent = "✓ Crear habilidad";
+}
+
+function renderGHFLista(modal){
+  if(!modal) modal = document.getElementById("gestion-habilidades-flotante");
+  if(!modal) return;
+  const listaEl = modal.querySelector("#ghf-lista-global");
+  listaEl.innerHTML = "";
+  if(!habilidadesGlobales.length){
+    listaEl.innerHTML = `<div class="cmd-vacio">Sin habilidades globales</div>`;
+    return;
+  }
   habilidadesGlobales.forEach(h=>{
-    const row=document.createElement("div"); row.className="gm-stat-row";
-    row.innerHTML=`<span>${esc(h.nombre)}</span>
-      <span style="color:var(--muted);font-size:11px">${esc(h.formula)}</span>`;
-    if(h.nombre!=="Ataque"){
-      const btn=document.createElement("button"); btn.className="gm-stat-del"; btn.textContent="✕";
-      btn.addEventListener("click",()=>{
-        if(confirm(`¿Eliminar la habilidad "${h.nombre}"?`))
-          enviar({tipo:"gm_borrar_habilidad",nombre_habilidad:h.nombre});
+    const row = document.createElement("div"); row.className = "ghf-hab-row";
+    row.innerHTML = `
+      <div class="ghf-hab-info">
+        <div class="ghf-hab-nombre">${esc(h.nombre)}</div>
+        <div class="ghf-hab-detalle">📐 ${esc(h.formula)}${h.stat_base ? ` · ${esc(h.stat_base)}` : ""}${h.descripcion ? ` — ${esc(h.descripcion)}` : ""}</div>
+      </div>
+      <div class="ghf-hab-acciones"></div>`;
+    const acciones = row.querySelector(".ghf-hab-acciones");
+    if(h.nombre !== "Ataque"){
+      const btnEdit = document.createElement("button"); btnEdit.className = "cmd-btn"; btnEdit.style.fontSize="11px"; btnEdit.style.padding="3px 7px"; btnEdit.textContent = "✏️ Editar";
+      btnEdit.addEventListener("click",()=>{
+        ghFlotanteEditando = h.nombre;
+        modal.querySelector("#ghf-nombre").value = h.nombre;
+        modal.querySelector("#ghf-formula").value = h.formula;
+        modal.querySelector("#ghf-stat-base").value = h.stat_base || "";
+        modal.querySelector("#ghf-desc").value = h.descripcion || "";
+        modal.querySelector("#ghf-form-titulo").textContent = `Editar: ${h.nombre}`;
+        modal.querySelector("#ghf-ok").textContent = "✓ Guardar cambios";
+        modal.querySelector("#ghf-nombre").focus();
       });
-      row.appendChild(btn);
+      const btnDel = document.createElement("button"); btnDel.className = "gm-stat-del"; btnDel.textContent = "✕";
+      btnDel.title = "Eliminar habilidad global";
+      btnDel.addEventListener("click",()=>{
+        if(confirm(`¿Eliminar la habilidad "${h.nombre}"?`))
+          enviar({tipo:"gm_borrar_habilidad", nombre_habilidad: h.nombre});
+      });
+      acciones.appendChild(btnEdit);
+      acciones.appendChild(btnDel);
     }
     listaEl.appendChild(row);
   });
-  if(!habilidadesGlobales.length){
-    listaEl.innerHTML=`<div class="cmd-vacio">Sin habilidades globales</div>`;
-  }
 }
 
-const btnNuevaHabilidad=$("btn-nueva-habilidad");
-const gmFormHabilidad=$("gm-form-habilidad");
-if(btnNuevaHabilidad){
-  btnNuevaHabilidad.addEventListener("click",()=>{
-    gmFormHabilidad.classList.remove("oculto"); btnNuevaHabilidad.classList.add("oculto");
-  });
+// Actualizar lista cuando cambian las habilidades globales
+function renderGMHabilidades(){
+  renderGHFLista(null);
 }
-const ghfOk=$("ghf-ok");
-const ghfCancelar=$("ghf-cancelar");
-if(ghfOk){
-  ghfOk.addEventListener("click",()=>{
-    const nom=$("ghf-nombre").value.trim(); if(!nom){alert("Escribe un nombre."); return;}
-    enviar({tipo:"gm_crear_habilidad",habilidad:{
-      nombre: nom,
-      formula: $("ghf-formula").value.trim()||"0",
-      stat_base: $("ghf-stat-base").value.trim()||"",
-      descripcion: $("ghf-desc").value.trim()||"",
-    }});
-    $("ghf-nombre").value=""; $("ghf-formula").value="";
-    $("ghf-stat-base").value=""; $("ghf-desc").value="";
-    gmFormHabilidad.classList.add("oculto"); btnNuevaHabilidad.classList.remove("oculto");
-  });
-}
-if(ghfCancelar){
-  ghfCancelar.addEventListener("click",()=>{
-    gmFormHabilidad.classList.add("oculto"); btnNuevaHabilidad.classList.remove("oculto");
-  });
-}
+
+$("btn-abrir-gestion-habilidades") && $("btn-abrir-gestion-habilidades").addEventListener("click", abrirGestionHabilidades);
 
 // ─────────────────────────────────────────────────────────────────
 // UI COMBATE

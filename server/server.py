@@ -671,6 +671,47 @@ async def manejar(ws, msg):
         await broadcast({"tipo": "habilidades_globales_actualizadas",
                          "habilidades_globales": estado["habilidades_globales"]})
 
+    elif tipo == "gm_editar_habilidad" and es_gm:
+        nombre_original = msg.get("nombre_original")
+        hab             = msg.get("habilidad", {})
+        if not nombre_original or not hab.get("nombre"): return
+        if nombre_original == "Ataque": return  # "Ataque" no se puede editar
+        nuevo_nombre = hab["nombre"]
+        nueva_hab = {
+            "nombre":      nuevo_nombre,
+            "formula":     hab.get("formula", "0"),
+            "stat_base":   hab.get("stat_base", ""),
+            "descripcion": hab.get("descripcion", ""),
+        }
+        # Actualizar en la lista global
+        idx = next((i for i, h in enumerate(estado["habilidades_globales"])
+                    if h["nombre"] == nombre_original), None)
+        if idx is None: return
+        estado["habilidades_globales"][idx] = nueva_hab
+        # Actualizar en personajes de todos los jugadores
+        jugadores_afectados = set()
+        for jug_nombre, personajes in estado["personajes"].items():
+            for p in personajes:
+                for i, h in enumerate(p.get("habilidades", [])):
+                    if h["nombre"] == nombre_original:
+                        p["habilidades"][i] = nueva_hab.copy()
+                        jugadores_afectados.add(jug_nombre)
+        # Actualizar en tokens
+        for tok in estado.get("tokens", {}).values():
+            for i, h in enumerate(tok.get("habilidades", [])):
+                if h["nombre"] == nombre_original:
+                    tok["habilidades"][i] = nueva_hab.copy()
+        guardar()
+        await broadcast({"tipo": "habilidades_globales_actualizadas",
+                         "habilidades_globales": estado["habilidades_globales"]})
+        # Notificar jugadores afectados
+        for jug_ws, jug_info in clientes.items():
+            if jug_info.get("nombre") in jugadores_afectados:
+                await enviar(jug_ws, {
+                    "tipo": "personajes_actualizados",
+                    "personajes": estado["personajes"].get(jug_info["nombre"], [])
+                })
+
     # ─── PERSONAJE: AÑADIR HABILIDAD ────────────────────────────
     elif tipo == "añadir_habilidad_personaje":
         if not nombre: return
