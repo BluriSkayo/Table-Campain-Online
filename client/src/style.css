@@ -113,6 +113,7 @@ textarea:focus{border-color:var(--accent)}
 /* Ficha en panel izq */
 #ficha-personaje{background:var(--bg2);border-radius:10px;border:1px solid var(--border);padding:12px;margin-top:6px}
 .ficha-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.fp-portrait{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border2);flex-shrink:0}
 #fp-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 #fp-nombre{font-weight:700;font-size:14px}
 #fp-clase{font-size:11px;color:var(--muted)}
@@ -132,6 +133,15 @@ textarea:focus{border-color:var(--accent)}
 .hab-item{padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:4px}
 .hab-nombre{font-weight:600;font-size:13px}
 .hab-formula{font-size:11px;color:var(--muted);font-family:monospace}
+
+/* Objetos */
+.objeto-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:4px}
+.objeto-info{flex:1}
+.objeto-nombre{font-weight:600;font-size:12px}
+.objeto-desc{font-size:10px;color:var(--muted)}
+.objeto-usar{padding:3px 10px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap}
+.objeto-usar:hover{opacity:.85}
+.objeto-usar:disabled{background:var(--bg3);color:var(--muted);cursor:not-allowed}
 
 /* Dados */
 .dados-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
@@ -218,6 +228,16 @@ textarea:focus{border-color:var(--accent)}
 .ataque-btn:hover{border-color:var(--accent)}
 .ataque-btn-nombre{font-weight:600}
 .ataque-btn-formula{font-size:11px;color:var(--muted);font-family:monospace}
+
+/* Retrato de personaje en modal */
+.mp-portrait-wrap{margin-bottom:10px;text-align:center}
+.mp-portrait{width:100%;max-height:180px;object-fit:cover;border-radius:10px;border:1px solid var(--border2)}
+.mp-portrait-ph{font-size:11px;color:var(--muted);border:1px dashed var(--border);border-radius:10px;padding:16px;text-align:center;line-height:1.6}
+
+/* Mapa items en GM panel */
+.mapa-item{padding:7px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:11px;transition:border-color .15s;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapa-item:hover{border-color:var(--border2)}
+.mapa-item.activo{border-color:var(--gold);color:var(--gold)}
 
 /* ══════════════════════════════════════════════════════════════
    MENÚ CONTEXTUAL

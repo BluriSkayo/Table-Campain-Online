@@ -32,6 +32,13 @@ HABILIDAD_ATAQUE_BASE = {
     "descripcion": "Ataque básico (daño fijo: 40)",
 }
 
+OBJETO_POCION = {
+    "nombre":      "Poción",
+    "descripcion": "Restaura 40 PS",
+    "efecto":      "heal_hp",
+    "valor":       40,
+}
+
 # ── Estado global ───────────────────────────────────────────────
 estado = {
     "campanas": {
@@ -53,6 +60,7 @@ estado = {
     "turno":          [],
     "turno_actual":   0,
     "combate_activo": False,
+    "mapa_activo":    None,
 }
 
 clientes = {}   # websocket → { nombre, es_gm }
@@ -74,6 +82,9 @@ def cargar():
                 if "local" not in datos.get("campanas", {}):
                     datos["campanas"]["local"] = estado["campanas"]["local"]
                 estado.update(datos)
+    # Asegurar campos que pueden faltar en estados guardados anteriores
+    if "mapa_activo" not in estado:
+        estado["mapa_activo"] = None
     print("Estado cargado. Tokens:", list(estado["tokens"].keys()))
 
 # ── Envío ────────────────────────────────────────────────────────
@@ -104,6 +115,7 @@ def paquete_estado(nombre, es_gm):
         "combate_activo":      estado["combate_activo"],
         "personajes":          estado["personajes"].get(nombre, []),
         "campanas":            estado["campanas"],
+        "mapa_activo":         estado["mapa_activo"],
     }
 
 # ── Sistema de fórmulas ──────────────────────────────────────────
@@ -174,7 +186,7 @@ def personaje_vacio(nombre_personaje, nombre_jugador, color="#3498db"):
         "color":       color,
         "stats":       stats,
         "habilidades": [HABILIDAD_ATAQUE_BASE.copy()],
-        "objetos":     [],
+        "objetos":     [OBJETO_POCION.copy()],
         "info_visible": ["HP", "nombre", "clase"],
     }
 
@@ -349,6 +361,7 @@ async def manejar(ws, msg):
             "clase":      p["clase"],
             "stats":      dict(p["stats"]),
             "habilidades":list(p["habilidades"]),
+            "objetos":    list(p.get("objetos", [])),
             "info_visible": list(p.get("info_visible",["HP","nombre"])),
             "es_enemigo": False,
         }
@@ -486,12 +499,68 @@ async def manejar(ws, msg):
                              "plantilla":estado["plantilla"],
                              "plantilla_bloqueada":False})
 
+    elif tipo == "gm_borrar_plantilla_guardada" and es_gm:
+        nom_p = msg.get("nombre_plantilla")
+        if nom_p in estado["plantillas_guardadas"]:
+            del estado["plantillas_guardadas"][nom_p]
+            guardar()
+            await enviar(ws,{"tipo":"plantillas_guardadas_actualizadas",
+                             "plantillas_guardadas":estado["plantillas_guardadas"]})
+
     elif tipo == "gm_desbloquear_plantilla" and es_gm:
         estado["plantilla_bloqueada"] = False
         guardar()
         await broadcast({"tipo":"plantilla_actualizada",
                          "plantilla":estado["plantilla"],
                          "plantilla_bloqueada":False})
+
+    # ─── GM: MAPA ────────────────────────────────────────────────
+    elif tipo == "gm_set_mapa" and es_gm:
+        archivo = msg.get("archivo")  # None to clear
+        estado["mapa_activo"] = archivo
+        guardar()
+        await broadcast({"tipo":"mapa_cambiado","archivo":archivo})
+
+    # ─── USAR OBJETO ─────────────────────────────────────────────
+    elif tipo == "usar_objeto":
+        tid     = msg.get("token_id")
+        nom_obj = msg.get("nombre_objeto")
+        if not tid or tid not in estado["tokens"]: return
+        t = estado["tokens"][tid]
+        if t.get("owner") != nombre and not es_gm: return
+
+        objetos = t.get("objetos", [])
+        obj = next((o for o in objetos if o["nombre"] == nom_obj), None)
+        if not obj: return
+
+        efecto = obj.get("efecto", "")
+        texto  = ""
+        if efecto == "heal_hp":
+            valor    = int(obj.get("valor", 0))
+            hp_antes = t["stats"].get("HP", 0)
+            hp_max   = t["stats"].get("HP_max", 100)
+            t["stats"]["HP"] = min(hp_max, hp_antes + valor)
+            texto = (f"💊 {t['personaje']} usó {nom_obj}: "
+                     f"+{valor} PS ({hp_antes} → {t['stats']['HP']})")
+
+        # Consume the object (single use)
+        t["objetos"] = [o for o in objetos if o["nombre"] != nom_obj]
+
+        # Sync object list back to the character record
+        lista_p = estado["personajes"].get(nombre, [])
+        p = next((x for x in lista_p if x["nombre"] == t.get("personaje")), None)
+        if p:
+            p["objetos"] = list(t["objetos"])
+
+        estado["mensajes"].append({"autor":"Sistema","texto":texto})
+        estado["mensajes"] = estado["mensajes"][-100:]
+        guardar()
+        await broadcast({"tipo":"objeto_usado","token_id":tid,
+                         "tokens":estado["tokens"],"texto":texto})
+        # Send updated character list to owner
+        if lista_p:
+            await enviar(ws,{"tipo":"lista_personajes","jugador":nombre,
+                             "personajes":lista_p})
 
     # ─── GM: COMBATE ────────────────────────────────────────────
     elif tipo == "gm_iniciar_combate" and es_gm:

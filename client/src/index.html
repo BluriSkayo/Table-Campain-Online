@@ -105,6 +105,7 @@
         <!-- Ficha de personaje (desplegada al seleccionar) -->
         <div id="ficha-personaje" class="oculto">
           <div class="ficha-header">
+            <img id="fp-portrait" class="fp-portrait oculto" alt="Retrato"/>
             <div id="fp-dot"></div>
             <div>
               <div id="fp-nombre"></div>
@@ -128,6 +129,12 @@
           <div class="ficha-acciones">
             <button class="cmd-btn naranja" id="btn-mod-estado">💊 Modificar estado</button>
           </div>
+        </div>
+
+        <!-- Objetos del personaje activo -->
+        <div id="panel-objetos" class="oculto">
+          <div class="cmd-seccion-titulo">🎒 Objetos</div>
+          <div id="lista-objetos"></div>
         </div>
       </div>
 
@@ -180,9 +187,14 @@
             <button class="musica-btn" id="btn-loop">🔁</button>
           </div>
           <div class="volumen-wrap">
-            <span>🔊</span>
+            <span title="Música">🎵</span>
             <input type="range" id="vol-musica" min="0" max="100" value="70"/>
             <span id="vol-musica-txt">70%</span>
+          </div>
+          <div class="volumen-wrap">
+            <span title="SFX">🔊</span>
+            <input type="range" id="vol-sfx" min="0" max="100" value="70"/>
+            <span id="vol-sfx-txt">70%</span>
           </div>
         </div>
       </div>
@@ -249,6 +261,13 @@
           <button class="cmd-btn azul"  id="btn-aplicar-gm-token">💾 Aplicar</button>
           <button class="cmd-btn rojo"  id="btn-borrar-gm-token">🗑️ Borrar token</button>
         </div>
+
+        <!-- Mapa de fondo -->
+        <div class="cmd-seccion-titulo" style="margin-top:12px">Mapa de fondo</div>
+        <div id="mapa-lista"></div>
+        <div id="mapa-vacio" class="cmd-vacio">No hay imágenes en resources/maps/</div>
+        <button class="cmd-btn" id="btn-quitar-mapa" style="background:var(--bg3);color:var(--muted)">✕ Sin mapa</button>
+
       </div>
 
     </div><!-- /col-comandos -->
@@ -287,6 +306,10 @@
     <div class="modal-body">
       <div class="modal-cols">
         <div class="modal-col">
+          <div class="mp-portrait-wrap">
+            <img id="mp-portrait" class="mp-portrait oculto" alt="Retrato del personaje"/>
+            <div id="mp-portrait-ph" class="mp-portrait-ph">Sin retrato<br><span class="hint">Añade una imagen en<br>resources/characters/portraits/</span></div>
+          </div>
           <div class="campo">
             <label>Nombre del personaje</label>
             <input id="mp-nombre" type="text" placeholder="Nombre..." maxlength="30"/>
@@ -301,7 +324,7 @@
           </div>
           <div class="campo">
             <label>Backstory</label>
-            <textarea id="mp-backstory" rows="5" placeholder="Historia del personaje..."></textarea>
+            <textarea id="mp-backstory" rows="4" placeholder="Historia del personaje..."></textarea>
           </div>
         </div>
         <div class="modal-col">
@@ -351,8 +374,16 @@
       <button class="btn-icono" id="modal-ataque-cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <div class="cmd-seccion-titulo">Elige tipo de ataque</div>
-      <div id="ma-habilidades"></div>
+      <div class="cmd-seccion-titulo">⚔️ Ataque neutral</div>
+      <div id="ma-ataque-base"></div>
+      <div id="ma-habilidades-seccion">
+        <div class="cmd-seccion-titulo">✨ Habilidades</div>
+        <div id="ma-habilidades"></div>
+      </div>
+      <div id="ma-objetos-seccion" class="oculto">
+        <div class="cmd-seccion-titulo">🎒 Objetos</div>
+        <div id="ma-objetos"></div>
+      </div>
     </div>
   </div>
 </div>

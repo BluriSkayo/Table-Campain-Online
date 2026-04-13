@@ -1,3 +1,0 @@
-Coloca aquí las imágenes de tokens en formato PNG, JPG o WEBP.
-El nombre del archivo debe coincidir con el nombre del personaje.
-Ejemplo: si tu personaje se llama "Gandalf", el archivo debe ser "Gandalf.png"
