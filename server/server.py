@@ -674,7 +674,9 @@ async def manejar(ws, msg):
     elif tipo == "gm_editar_habilidad" and es_gm:
         nombre_original = msg.get("nombre_original")
         hab             = msg.get("habilidad", {})
-        if not nombre_original or not hab.get("nombre"): return
+        if not nombre_original or not hab.get("nombre"):
+            print("[WARN] gm_editar_habilidad: faltan campos requeridos")
+            return
         if nombre_original == "Ataque": return  # "Ataque" no se puede editar
         nuevo_nombre = hab["nombre"]
         nueva_hab = {
@@ -686,7 +688,9 @@ async def manejar(ws, msg):
         # Actualizar en la lista global
         idx = next((i for i, h in enumerate(estado["habilidades_globales"])
                     if h["nombre"] == nombre_original), None)
-        if idx is None: return
+        if idx is None:
+            print(f"[WARN] gm_editar_habilidad: habilidad '{nombre_original}' no encontrada")
+            return
         estado["habilidades_globales"][idx] = nueva_hab
         # Actualizar en personajes de todos los jugadores
         jugadores_afectados = set()
