@@ -3,10 +3,12 @@
 const path = require("path");
 const fs   = require("fs");
 
-const WS_URL      = "ws://localhost:8765";
-const RESOURCES   = path.join(__dirname, "..", "..", "resources");
-const MUSIC_DIR   = path.join(RESOURCES, "music");
-const TOKENS_DIR  = path.join(RESOURCES, "characters", "tokens");
+const WS_URL        = "ws://localhost:8765";
+const RESOURCES     = path.join(__dirname, "..", "..", "resources");
+const MUSIC_DIR     = path.join(RESOURCES, "music");
+const TOKENS_DIR    = path.join(RESOURCES, "characters", "tokens");
+const PORTRAITS_DIR = path.join(RESOURCES, "characters", "portraits");
+const MAPS_DIR      = path.join(RESOURCES, "maps");
 
 // ── Estado local ─────────────────────────────────────────────────
 let ws, miNombre = "", esGM = false;
@@ -19,11 +21,13 @@ let modoEdicion = "crear";    // "crear" | "editar"
 let tokenAtacanteId = null;
 let tokenDefensorId = null;
 let campanaActual = null;
+let mapaActivo = null;
+let mapaImg = null;
 
 // ── Audio ─────────────────────────────────────────────────────────
 let audioCtx = null, audioSource = null, audioGain = null;
 let musicaLista = [], musicaIndice = 0, musicaLoop = true, musicaReproduciendo = false;
-let targetVol = 0.7;
+let targetVol = 0.7, targetVolSfx = 0.7;
 
 // ── DOM ──────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -90,6 +94,8 @@ const btnNext         = $("btn-next");
 const btnLoop         = $("btn-loop");
 const volMusica       = $("vol-musica");
 const volMusicaTxt    = $("vol-musica-txt");
+const volSfx          = $("vol-sfx");
+const volSfxTxt       = $("vol-sfx-txt");
 
 // GM
 const panelGM           = $("panel-gm");
@@ -131,6 +137,8 @@ const mpClase           = $("mp-clase");
 const mpColor           = $("mp-color");
 const mpBackstory       = $("mp-backstory");
 const mpStatsGrid       = $("mp-stats-grid");
+const mpPortrait        = $("mp-portrait");
+const mpPortraitPh      = $("mp-portrait-ph");
 const btnGuardarPers    = $("btn-guardar-personaje");
 const btnCancelarPers   = $("btn-cancelar-personaje");
 const modalPersClose    = $("modal-personaje-cerrar");
@@ -144,7 +152,10 @@ const modalEstadoClose  = $("modal-estado-cerrar");
 
 const modalAtaque       = $("modal-ataque");
 const maObjetivo        = $("ma-objetivo");
+const maAtaqueBase      = $("ma-ataque-base");
 const maHabilidades     = $("ma-habilidades");
+const maObjetosSeccion  = $("ma-objetos-seccion");
+const maObjetos         = $("ma-objetos");
 const modalAtaqueClose  = $("modal-ataque-cerrar");
 
 // Menú contextual
@@ -247,6 +258,7 @@ function procesar(msg) {
       turnoActual        = msg.turno_actual || 0;
       combateActivo      = msg.combate_activo || false;
       misPersonajes      = msg.personajes || [];
+      mapaActivo         = msg.mapa_activo || null;
 
       tbNombre.textContent  = miNombre;
       tbCampana.textContent = campanaActual?.nombre || "local";
@@ -261,6 +273,7 @@ function procesar(msg) {
       panelUnion.classList.add("oculto");
 
       iniciarCanvas();
+      if(mapaActivo) cargarImagenMapa(mapaActivo);
       cargarMusica();
       actualizarUI();
       renderMisPersonajes();
@@ -290,12 +303,18 @@ function procesar(msg) {
       if(msg.personaje && personajeActivo?.nombre === msg.personaje.nombre){
         personajeActivo = msg.personaje;
         mostrarFichaPersonaje(personajeActivo);
+        renderObjetos(personajeActivo);
       }
       break;
 
     case "lista_personajes":
       misPersonajes = msg.personajes || [];
       renderMisPersonajes();
+      // Refresh active character if it was updated
+      if(personajeActivo) {
+        const p = misPersonajes.find(x=>x.nombre===personajeActivo.nombre);
+        if(p) { personajeActivo=p; mostrarFichaPersonaje(p); renderObjetos(p); }
+      }
       break;
 
     case "token_movido":
@@ -349,6 +368,17 @@ function procesar(msg) {
       tokens=msg.tokens;
       agregarChat("⚔️",msg.texto_sistema,"combate");
       dibujar(); break;
+
+    case "mapa_cambiado":
+      mapaActivo = msg.archivo || null;
+      cargarImagenMapa(mapaActivo);
+      if(esGM) renderGMMapaLista();
+      break;
+
+    case "objeto_usado":
+      if(msg.tokens) tokens = msg.tokens;
+      if(msg.texto) agregarChat("Sistema", msg.texto, "sistema");
+      dibujar(); break;
   }
 }
 
@@ -394,7 +424,14 @@ function ajustar() {
 function dibujar() {
   if(!ctx) return;
   const W=canvas.width, H=canvas.height;
-  ctx.fillStyle="#0d0d1a"; ctx.fillRect(0,0,W,H);
+
+  // Fondo: imagen de mapa o color sólido
+  if(mapaImg) {
+    ctx.drawImage(mapaImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle="#0d0d1a"; ctx.fillRect(0,0,W,H);
+  }
+
   ctx.strokeStyle="rgba(255,255,255,0.03)"; ctx.lineWidth=1;
   for(let x=0;x<W;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
   for(let y=0;y<H;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
@@ -524,22 +561,50 @@ function seleccionarToken(tid){
 // ─────────────────────────────────────────────────────────────────
 function onContextMenu(e){
   e.preventDefault();
+  const {x: cx, y: cy} = canvasXY(e);
   const tid=tokenBajo(e.clientX,e.clientY);
-  if(!tid){ ctxMenu.classList.add("oculto"); return; }
+
+  ctxItems.innerHTML="";
+
+  if(!tid){
+    // Área vacía — ofrecer "Mover aquí" si hay token seleccionado del jugador
+    if(tokenSeleccionado && tokens[tokenSeleccionado]){
+      const tsel=tokens[tokenSeleccionado];
+      if(tsel.owner===miNombre || esGM){
+        agregarCtxItem("🚶 Mover aquí",()=>{
+          const nx=Math.round(cx), ny=Math.round(cy);
+          tokens[tokenSeleccionado].x=nx; tokens[tokenSeleccionado].y=ny;
+          enviar({tipo:"mover_token",token_id:tokenSeleccionado,x:nx,y:ny});
+          dibujar();
+        });
+        ctxMenu.style.left=`${Math.min(e.clientX,window.innerWidth-200)}px`;
+        ctxMenu.style.top =`${Math.min(e.clientY,window.innerHeight-200)}px`;
+        ctxMenu.classList.remove("oculto");
+        e.stopPropagation();
+        return;
+      }
+    }
+    ctxMenu.classList.add("oculto");
+    return;
+  }
+
   const t=tokens[tid];
   const esMio=t.owner===miNombre;
 
-  ctxItems.innerHTML="";
   if(esMio){
-    agregarCtxItem("👤 Ver datos",()=>abrirFichaToken(tid));
+    agregarCtxItem("👤 Ver datos del personaje",()=>abrirFichaToken(tid));
     agregarCtxItem("💊 Modificar estado",()=>abrirModificarEstadoToken(tid));
-  } else {
-    // Token enemigo u otro jugador: mostrar solo info visible
-    agregarCtxItem("🔍 Ver datos",()=>abrirFichaTokenVisible(tid));
-    if(combateActivo){
+    const objetos=t.objetos||[];
+    if(objetos.length){
       agregarCtxSep();
-      agregarCtxItem("⚔️ Atacar",()=>abrirModalAtaque(tid),"peligro");
+      objetos.forEach(obj=>{
+        agregarCtxItem(`🎒 Usar: ${obj.nombre}`,()=>usarObjeto(tid,obj.nombre));
+      });
     }
+  } else {
+    agregarCtxItem("🔍 Ver datos",()=>abrirFichaTokenVisible(tid));
+    agregarCtxSep();
+    agregarCtxItem("⚔️ Atacar",()=>abrirModalAtaque(tid),"peligro");
   }
   if(esGM){
     agregarCtxSep();
@@ -598,19 +663,57 @@ function abrirModalAtaque(tidDefensor){
   const ta=tokens[tokenAtacanteId];
   const habs=ta.habilidades||[];
   maObjetivo.textContent=tokens[tidDefensor]?.personaje||tidDefensor;
+
+  // Sección 1: Ataque neutral
+  maAtaqueBase.innerHTML="";
+  const ataqueBase=habs.find(h=>h.nombre==="Ataque")||{nombre:"Ataque",formula:"40",descripcion:"Ataque básico (daño fijo: 40)"};
+  const btnBase=document.createElement("button"); btnBase.className="ataque-btn";
+  btnBase.innerHTML=`<div class="ataque-btn-nombre">${ataqueBase.nombre}</div>
+                     <div class="ataque-btn-formula">${ataqueBase.formula} — ${ataqueBase.descripcion||""}</div>`;
+  btnBase.addEventListener("click",()=>{
+    enviar({tipo:"atacar",token_atacante:tokenAtacanteId,token_defensor:tidDefensor,habilidad:"Ataque"});
+    modalAtaque.classList.add("oculto");
+  });
+  maAtaqueBase.appendChild(btnBase);
+
+  // Sección 2: Otras habilidades
   maHabilidades.innerHTML="";
-  habs.forEach(h=>{
+  const otrasHabs=habs.filter(h=>h.nombre!=="Ataque");
+  otrasHabs.forEach(h=>{
     const btn=document.createElement("button"); btn.className="ataque-btn";
     btn.innerHTML=`<div class="ataque-btn-nombre">${h.nombre}</div>
                    <div class="ataque-btn-formula">${h.formula}</div>`;
     btn.addEventListener("click",()=>{
-      enviar({tipo:"atacar",token_atacante:tokenAtacanteId,
-              token_defensor:tidDefensor,habilidad:h.nombre});
+      enviar({tipo:"atacar",token_atacante:tokenAtacanteId,token_defensor:tidDefensor,habilidad:h.nombre});
       modalAtaque.classList.add("oculto");
     });
     maHabilidades.appendChild(btn);
   });
+  if(!otrasHabs.length){
+    const p=document.createElement("div"); p.className="cmd-vacio"; p.textContent="Sin habilidades adicionales";
+    maHabilidades.appendChild(p);
+  }
+
+  // Sección 3: Objetos
+  const objetos=ta.objetos||[];
+  maObjetosSeccion.classList.toggle("oculto",!objetos.length);
+  maObjetos.innerHTML="";
+  objetos.forEach(obj=>{
+    const btn=document.createElement("button"); btn.className="ataque-btn";
+    btn.innerHTML=`<div class="ataque-btn-nombre">🎒 ${obj.nombre}</div>
+                   <div class="ataque-btn-formula">${obj.descripcion||""}</div>`;
+    btn.addEventListener("click",()=>{
+      enviar({tipo:"usar_objeto",token_id:tokenAtacanteId,nombre_objeto:obj.nombre});
+      modalAtaque.classList.add("oculto");
+    });
+    maObjetos.appendChild(btn);
+  });
+
   modalAtaque.classList.remove("oculto");
+}
+
+function usarObjeto(tokenId, nombreObjeto){
+  enviar({tipo:"usar_objeto",token_id:tokenId,nombre_objeto:nombreObjeto});
 }
 
 function abrirModificarEstadoToken(tid){
@@ -643,7 +746,8 @@ function renderMisPersonajes(){
         <div class="pers-clase">${p.clase||"Aventurero"}</div>
       </div>`;
     div.addEventListener("click",()=>{
-      personajeActivo=p; renderMisPersonajes(); mostrarFichaPersonaje(p); renderHabilidades(p);
+      personajeActivo=p; renderMisPersonajes();
+      mostrarFichaPersonaje(p); renderHabilidades(p); renderObjetos(p);
     });
     listaMisPersonajes.appendChild(div);
   });
@@ -654,6 +758,20 @@ function mostrarFichaPersonaje(p){
   fpDot.style.background=p.color;
   fpNombre.textContent=p.nombre;
   fpClase.textContent=p.clase||"Aventurero";
+
+  // Mostrar retrato si existe
+  const fpPortrait=$("fp-portrait");
+  const posiblesPortrait=[
+    path.join(PORTRAITS_DIR,`${p.nombre}.png`),
+    path.join(PORTRAITS_DIR,`${p.nombre}.jpg`),
+    path.join(PORTRAITS_DIR,`${p.nombre}.webp`),
+  ];
+  const portFile=posiblesPortrait.find(f=>fs.existsSync(f));
+  if(portFile){
+    fpPortrait.src=portFile; fpPortrait.classList.remove("oculto");
+  } else {
+    fpPortrait.classList.add("oculto");
+  }
 
   const hp=p.stats?.HP??0, hpMax=p.stats?.HP_max??1;
   const mp=p.stats?.MP??0, mpMax=p.stats?.MP_max??1;
@@ -688,6 +806,35 @@ function renderHabilidades(p){
   });
 }
 
+function renderObjetos(p){
+  const panelObj=$("panel-objetos");
+  const listaObj=$("lista-objetos");
+  if(!p){ panelObj.classList.add("oculto"); return; }
+  panelObj.classList.remove("oculto");
+  listaObj.innerHTML="";
+  const objetos=p.objetos||[];
+  if(!objetos.length){
+    const d=document.createElement("div"); d.className="cmd-vacio"; d.textContent="Sin objetos";
+    listaObj.appendChild(d); return;
+  }
+  objetos.forEach(obj=>{
+    const div=document.createElement("div"); div.className="objeto-item";
+    const info=document.createElement("div"); info.className="objeto-info";
+    info.innerHTML=`<div class="objeto-nombre">${obj.nombre}</div>
+                    <div class="objeto-desc">${obj.descripcion||""}</div>`;
+    const btn=document.createElement("button"); btn.className="objeto-usar";
+    btn.textContent="Usar";
+    const miToken=Object.entries(tokens).find(([,t])=>t.owner===miNombre&&t.personaje===p.nombre);
+    if(miToken){
+      btn.addEventListener("click",()=>usarObjeto(miToken[0],obj.nombre));
+    } else {
+      btn.disabled=true; btn.title="Despliega tu token primero";
+    }
+    div.appendChild(info); div.appendChild(btn);
+    listaObj.appendChild(div);
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MODAL PERSONAJE
 // ─────────────────────────────────────────────────────────────────
@@ -699,6 +846,24 @@ function abrirModalPersonaje(modo, p=null){
   mpClase.value     = p?.clase||"";
   mpColor.value     = p?.color||"#3498db";
   mpBackstory.value = p?.backstory||"";
+
+  // Mostrar retrato si existe
+  const nombre=p?.nombre||"";
+  if(nombre && modo==="editar"){
+    const posibles=[
+      path.join(PORTRAITS_DIR,`${nombre}.png`),
+      path.join(PORTRAITS_DIR,`${nombre}.jpg`),
+      path.join(PORTRAITS_DIR,`${nombre}.webp`),
+    ];
+    const portFile=posibles.find(f=>fs.existsSync(f));
+    if(portFile){
+      mpPortrait.src=portFile; mpPortrait.classList.remove("oculto"); mpPortraitPh.classList.add("oculto");
+    } else {
+      mpPortrait.classList.add("oculto"); mpPortraitPh.classList.remove("oculto");
+    }
+  } else {
+    mpPortrait.classList.add("oculto"); mpPortraitPh.classList.remove("oculto");
+  }
 
   mpStatsGrid.innerHTML="";
   plantilla.forEach(s=>{
@@ -872,6 +1037,36 @@ btnBorrarGmToken.addEventListener("click",()=>{
   }
 });
 
+// GM: mapa de fondo
+function renderGMMapaLista(){
+  const listaEl=$("mapa-lista");
+  const vacioEl=$("mapa-vacio");
+  if(!listaEl) return;
+  let archivos=[];
+  try {
+    if(fs.existsSync(MAPS_DIR)){
+      archivos=fs.readdirSync(MAPS_DIR).filter(f=>/\.(png|jpg|jpeg|webp)$/i.test(f));
+    }
+  } catch(e){}
+  listaEl.innerHTML="";
+  if(!archivos.length){ vacioEl.classList.remove("oculto"); return; }
+  vacioEl.classList.add("oculto");
+  archivos.forEach(f=>{
+    const div=document.createElement("div");
+    div.className=`mapa-item${mapaActivo===f?" activo":""}`;
+    div.textContent=f;
+    div.addEventListener("click",()=>enviar({tipo:"gm_set_mapa",archivo:f}));
+    listaEl.appendChild(div);
+  });
+}
+
+$("btn-quitar-mapa").addEventListener("click",()=>enviar({tipo:"gm_set_mapa",archivo:null}));
+
+// Cargar lista de mapas cuando el GM abre el panel GM
+document.querySelector('[data-panel="gm"]').addEventListener("click",()=>{
+  if(esGM) renderGMMapaLista();
+});
+
 // ─────────────────────────────────────────────────────────────────
 // UI COMBATE
 // ─────────────────────────────────────────────────────────────────
@@ -962,12 +1157,23 @@ function reproducirMusica(idx){
   const ruta=musicaLista[idx].ruta;
 
   if(!audioCtx) audioCtx=new AudioContext();
-  if(audioSource){ audioSource.stop(); audioSource=null; }
 
-  // Fade in
+  // Crossfade: fade out old source while loading new one
+  const oldSource=audioSource;
+  const oldGain=audioGain;
+  if(oldSource && oldGain){
+    const now=audioCtx.currentTime;
+    oldGain.gain.cancelScheduledValues(now);
+    oldGain.gain.setValueAtTime(oldGain.gain.value, now);
+    oldGain.gain.linearRampToValueAtTime(0, now+1.5);
+    setTimeout(()=>{ try{ oldSource.stop(); }catch(e){} }, 1600);
+  }
+  audioSource=null;
+
+  // New gain node with fade-in
   audioGain=audioCtx.createGain();
-  audioGain.gain.setValueAtTime(0,audioCtx.currentTime);
-  audioGain.gain.linearRampToValueAtTime(targetVol,audioCtx.currentTime+1.5);
+  audioGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  audioGain.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime+1.5);
   audioGain.connect(audioCtx.destination);
 
   fs.readFile(ruta,(err,buf)=>{
@@ -1016,6 +1222,11 @@ volMusica.addEventListener("input",()=>{
   volMusicaTxt.textContent=volMusica.value+"%";
   if(audioGain) audioGain.gain.setValueAtTime(targetVol,audioCtx.currentTime);
 });
+volSfx.addEventListener("input",()=>{
+  targetVolSfx=volSfx.value/100;
+  volSfxTxt.textContent=volSfx.value+"%";
+  // SFX volume stored for future use when SFX are implemented
+});
 
 // ─────────────────────────────────────────────────────────────────
 // TABS PANEL COMANDOS
@@ -1037,6 +1248,7 @@ btnVolverIni.addEventListener("click",()=>{
   sala.classList.add("oculto");
   pInicio.classList.remove("oculto");
   tokens={}; misPersonajes=[]; personajeActivo=null; tokenSeleccionado=null;
+  mapaActivo=null; mapaImg=null;
   tbRol.classList.add("oculto");
 });
 
@@ -1046,4 +1258,20 @@ btnVolverIni.addEventListener("click",()=>{
 function mostrarErrorUnion(txt){
   unionError.textContent=txt; unionError.classList.remove("oculto");
   setTimeout(()=>unionError.classList.add("oculto"),4000);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MAPA DE FONDO
+// ─────────────────────────────────────────────────────────────────
+function cargarImagenMapa(archivo){
+  if(!archivo){ mapaImg=null; dibujar(); return; }
+  const ruta=path.join(MAPS_DIR, archivo);
+  if(fs.existsSync(ruta)){
+    const img=new Image();
+    img.onload=()=>{ mapaImg=img; dibujar(); };
+    img.onerror=()=>{ mapaImg=null; dibujar(); };
+    img.src=ruta;
+  } else {
+    mapaImg=null; dibujar();
+  }
 }
