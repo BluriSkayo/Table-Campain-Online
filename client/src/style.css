@@ -339,3 +339,12 @@ textarea:focus{border-color:var(--accent)}
    GM HABILIDADES
 ══════════════════════════════════════════════════════════════ */
 .gm-input[type="textarea"],.gm-input textarea{resize:vertical}
+
+/* ══════════════════════════════════════════════════════════════
+   GESTIÓN DE HABILIDADES FLOTANTE
+══════════════════════════════════════════════════════════════ */
+.ghf-hab-row{display:flex;align-items:center;gap:8px;padding:7px 8px;background:var(--bg2);border-radius:8px;margin-bottom:5px}
+.ghf-hab-info{flex:1;min-width:0}
+.ghf-hab-nombre{font-weight:600;font-size:13px}
+.ghf-hab-detalle{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.ghf-hab-acciones{display:flex;gap:4px;flex-shrink:0}
