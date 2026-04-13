@@ -9,6 +9,7 @@ function crearVentana() {
     minHeight: 600,
     title: "Mesa de Rol",
     backgroundColor: "#0d0d1a",
+    icon: path.join(__dirname, "src", "icon.ico"),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
