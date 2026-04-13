@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Mesa de Rol</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     PANTALLA DE INICIO — Lista de campañas
+══════════════════════════════════════════════════════════════ -->
+<div id="pantalla-inicio">
+  <div class="inicio-bg"></div>
+  <div class="inicio-contenido">
+    <div class="inicio-logo">
+      <div class="inicio-sigil">⚔</div>
+      <h1>Mesa de Rol</h1>
+      <p>Elige una campaña para comenzar</p>
+    </div>
+
+    <div class="inicio-tabs">
+      <button class="tab-btn activo" data-tab="campanas">Campañas</button>
+      <button class="tab-btn" data-tab="crear">Crear campaña</button>
+    </div>
+
+    <!-- Tab: campañas disponibles -->
+    <div id="tab-campanas" class="tab-content">
+      <div id="lista-campanas">
+        <!-- Se genera dinámicamente -->
+      </div>
+    </div>
+
+    <!-- Tab: crear campaña -->
+    <div id="tab-crear" class="tab-content oculto">
+      <div class="crear-form">
+        <div class="campo">
+          <label>Nombre de la campaña</label>
+          <input id="nueva-campana-nombre" type="text" placeholder="Nombre..." maxlength="40"/>
+        </div>
+        <button class="btn-primario" id="btn-crear-campana">Crear campaña</button>
+        <p class="hint" style="text-align:center;margin-top:8px">Por ahora solo se crean campañas locales</p>
+      </div>
+    </div>
+
+    <!-- Panel de unión -->
+    <div id="panel-union" class="oculto">
+      <div class="union-card">
+        <h3 id="union-titulo"></h3>
+        <div class="campo">
+          <label>Tu nombre</label>
+          <input id="inp-nombre" type="text" placeholder="Nombre de aventurero..." maxlength="20"/>
+        </div>
+        <div id="union-error" class="login-error oculto"></div>
+        <div class="union-botones">
+          <button class="btn-primario" id="btn-unirse">Entrar</button>
+          <button class="btn-secundario" id="btn-cancelar-union">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SALA DE JUEGO — 3 columnas
+══════════════════════════════════════════════════════════════ -->
+<div id="sala" class="oculto">
+
+  <!-- Topbar -->
+  <div id="topbar">
+    <div id="tb-izq">
+      <span class="sigil">⚔</span>
+      <span id="tb-nombre"></span>
+      <span id="tb-rol" class="badge oculto">Game Master</span>
+    </div>
+    <div id="tb-centro">
+      <span id="tb-campana"></span>
+      <span id="tb-turno" class="turno-badge oculto"></span>
+    </div>
+    <div id="tb-der">
+      <button class="btn-topbar" id="btn-volver-inicio">← Inicio</button>
+    </div>
+  </div>
+
+  <div id="layout">
+
+    <!-- ══ COLUMNA IZQUIERDA: Comandos ══ -->
+    <div id="col-comandos">
+
+      <!-- Tabs del panel de comandos -->
+      <div class="cmd-tabs">
+        <button class="cmd-tab activo" data-panel="personajes">👤 Personajes</button>
+        <button class="cmd-tab" data-panel="habilidades">⚡ Habilidades</button>
+        <button class="cmd-tab" data-panel="dados">🎲 Dados</button>
+        <button class="cmd-tab" data-panel="musica">🎵 Música</button>
+        <button class="cmd-tab gm-only oculto" data-panel="gm">👑 GM</button>
+      </div>
+
+      <!-- Panel: Personajes -->
+      <div id="panel-personajes" class="cmd-panel">
+        <div class="cmd-seccion-titulo">Mis personajes</div>
+        <div id="lista-mis-personajes"></div>
+        <button class="cmd-btn azul" id="btn-crear-personaje">＋ Crear personaje</button>
+
+        <!-- Ficha de personaje (desplegada al seleccionar) -->
+        <div id="ficha-personaje" class="oculto">
+          <div class="ficha-header">
+            <div id="fp-dot"></div>
+            <div>
+              <div id="fp-nombre"></div>
+              <div id="fp-clase"></div>
+            </div>
+            <button class="btn-icono" id="fp-cerrar">✕</button>
+          </div>
+          <div id="fp-hp-wrap">
+            <div class="barra-bg"><div id="fp-hp-barra" class="barra-fill verde"></div></div>
+            <div class="barra-txt"><span>HP</span><span id="fp-hp-txt"></span></div>
+          </div>
+          <div id="fp-mp-wrap">
+            <div class="barra-bg"><div id="fp-mp-barra" class="barra-fill azul"></div></div>
+            <div class="barra-txt"><span>MP</span><span id="fp-mp-txt"></span></div>
+          </div>
+          <div id="fp-stats-grid"></div>
+          <div class="ficha-acciones">
+            <button class="cmd-btn verde" id="btn-desplegar-token">🗺️ Desplegar token</button>
+            <button class="cmd-btn azul" id="btn-editar-personaje">✏️ Editar</button>
+          </div>
+          <div class="ficha-acciones">
+            <button class="cmd-btn naranja" id="btn-mod-estado">💊 Modificar estado</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: Habilidades -->
+      <div id="panel-habilidades" class="cmd-panel oculto">
+        <div class="cmd-seccion-titulo">Habilidades de tu personaje activo</div>
+        <div id="lista-habilidades"></div>
+        <div id="habilidades-sin-personaje" class="cmd-vacio">
+          Selecciona un personaje primero
+        </div>
+      </div>
+
+      <!-- Panel: Dados -->
+      <div id="panel-dados" class="cmd-panel oculto">
+        <div class="cmd-seccion-titulo">Tirar dados</div>
+        <div class="dados-grid">
+          <button class="dado-btn" data-dado="d4">d4</button>
+          <button class="dado-btn" data-dado="d6">d6</button>
+          <button class="dado-btn" data-dado="d8">d8</button>
+          <button class="dado-btn" data-dado="d10">d10</button>
+          <button class="dado-btn" data-dado="d12">d12</button>
+          <button class="dado-btn" data-dado="d20">d20</button>
+          <button class="dado-btn" data-dado="d100">d100</button>
+        </div>
+        <div class="cmd-seccion-titulo" style="margin-top:14px">Tirada personalizada</div>
+        <div class="gm-fila">
+          <input class="gm-input" id="dado-custom-cant" type="number" min="1" max="99" value="1" style="width:50px"/>
+          <span style="color:var(--muted)">d</span>
+          <input class="gm-input" id="dado-custom-caras" type="number" min="2" max="10000" value="20"/>
+          <button class="cmd-btn azul" id="btn-dado-custom">Tirar</button>
+        </div>
+        <div id="dado-resultado" class="dado-resultado oculto"></div>
+      </div>
+
+      <!-- Panel: Música (Rocola) -->
+      <div id="panel-musica" class="cmd-panel oculto">
+        <div class="cmd-seccion-titulo">🎵 Rocola</div>
+        <div id="musica-lista"></div>
+        <div id="musica-vacio" class="cmd-vacio">
+          No hay música en resources/music/
+        </div>
+        <div id="musica-controles">
+          <div class="musica-actual">
+            <span id="musica-nombre-actual">Sin reproducir</span>
+          </div>
+          <div class="musica-btns">
+            <button class="musica-btn" id="btn-prev">⏮</button>
+            <button class="musica-btn grande" id="btn-play">▶</button>
+            <button class="musica-btn" id="btn-next">⏭</button>
+            <button class="musica-btn" id="btn-loop">🔁</button>
+          </div>
+          <div class="volumen-wrap">
+            <span>🔊</span>
+            <input type="range" id="vol-musica" min="0" max="100" value="70"/>
+            <span id="vol-musica-txt">70%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: GM -->
+      <div id="panel-gm" class="cmd-panel oculto">
+        <!-- Plantilla -->
+        <div class="cmd-seccion-titulo">Plantilla de stats</div>
+        <div id="gm-aviso-bloq" class="gm-aviso oculto">
+          🔒 Jugadores con ficha. <button class="gm-link" id="btn-desbloquear">Desbloquear</button>
+        </div>
+        <div id="gm-stats-lista"></div>
+        <button class="cmd-btn azul" id="btn-add-stat">＋ Añadir stat</button>
+        <div id="gm-form-stat" class="gm-form oculto">
+          <input class="gm-input" id="gf-nombre" placeholder="Nombre (ej: Fuerza)"/>
+          <select class="gm-input" id="gf-tipo">
+            <option value="ofensiva">Ofensiva</option>
+            <option value="defensiva">Defensiva</option>
+            <option value="neutral">Neutral</option>
+          </select>
+          <div id="gf-vs-wrap">
+            <label class="gm-label">Enfrenta a:</label>
+            <select class="gm-input" id="gf-vs"></select>
+          </div>
+          <select class="gm-input" id="gf-dado">
+            <option>d4</option><option>d6</option><option>d8</option>
+            <option selected>d20</option><option>d100</option>
+          </select>
+          <div class="gm-fila">
+            <button class="cmd-btn verde" id="gf-ok">✓ Añadir</button>
+            <button class="cmd-btn" id="gf-cancelar">✕</button>
+          </div>
+        </div>
+        <div class="gm-fila" style="margin-top:8px">
+          <input class="gm-input flex1" id="gm-plant-nom" placeholder="Nombre plantilla"/>
+          <button class="cmd-btn azul" id="btn-guardar-plantilla">💾</button>
+        </div>
+        <div id="gm-lista-plantillas"></div>
+
+        <!-- Añadir enemigo -->
+        <div class="cmd-seccion-titulo" style="margin-top:12px">Añadir enemigo</div>
+        <input class="gm-input" id="gm-en-nombre" placeholder="Nombre (ej: Goblin)"/>
+        <div class="gm-fila">
+          <input class="gm-input mini" id="gm-en-hp" type="number" value="30" placeholder="HP"/>
+          <input class="gm-input mini" id="gm-en-color" type="color" value="#e74c3c"/>
+        </div>
+        <button class="cmd-btn naranja" id="btn-añadir-enemigo">➕ Añadir al tablero</button>
+
+        <!-- Combate -->
+        <div class="cmd-seccion-titulo" style="margin-top:12px">Combate</div>
+        <button class="cmd-btn verde"  id="btn-iniciar-combate">⚔️ Iniciar</button>
+        <button class="cmd-btn rojo oculto" id="btn-terminar-combate">🏳️ Terminar</button>
+        <button class="cmd-btn azul oculto" id="btn-sig-turno">⏭️ Siguiente turno</button>
+
+        <!-- Token seleccionado -->
+        <div class="cmd-seccion-titulo" style="margin-top:12px">Token seleccionado</div>
+        <div id="gm-sel-vacio" class="cmd-vacio">Haz clic en un token</div>
+        <div id="gm-sel-controles" class="oculto">
+          <div id="gm-sel-nombre" class="gm-sel-nom"></div>
+          <div class="gm-fila">
+            <label class="gm-label">HP</label><input class="gm-input mini" id="gm-sel-hp" type="number"/>
+            <label class="gm-label">MP</label><input class="gm-input mini" id="gm-sel-mp" type="number"/>
+          </div>
+          <button class="cmd-btn azul"  id="btn-aplicar-gm-token">💾 Aplicar</button>
+          <button class="cmd-btn rojo"  id="btn-borrar-gm-token">🗑️ Borrar token</button>
+        </div>
+      </div>
+
+    </div><!-- /col-comandos -->
+
+    <!-- ══ COLUMNA CENTRAL: Mapa y Tokens ══ -->
+    <div id="col-mapa">
+      <canvas id="tablero"></canvas>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA: Chat ══ -->
+    <div id="col-chat">
+      <div class="panel-titulo">💬 Chat
+        <span class="hint" style="font-size:10px;font-weight:400;margin-left:6px">/d20 · /mode gm ···</span>
+      </div>
+      <div id="chat-msgs"></div>
+      <div id="chat-input-area">
+        <input id="chat-input" type="text" placeholder="Mensaje o /d20..."/>
+        <button id="chat-enviar">↑</button>
+      </div>
+    </div>
+
+  </div><!-- /layout -->
+</div><!-- /sala -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODALES
+══════════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Crear/Editar personaje -->
+<div id="modal-personaje" class="modal-overlay oculto">
+  <div class="modal-card grande">
+    <div class="modal-header">
+      <h2 id="modal-personaje-titulo">Crear personaje</h2>
+      <button class="btn-icono" id="modal-personaje-cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-cols">
+        <div class="modal-col">
+          <div class="campo">
+            <label>Nombre del personaje</label>
+            <input id="mp-nombre" type="text" placeholder="Nombre..." maxlength="30"/>
+          </div>
+          <div class="campo">
+            <label>Clase / Rol</label>
+            <input id="mp-clase" type="text" placeholder="Guerrero, Mago..." maxlength="30"/>
+          </div>
+          <div class="campo">
+            <label>Color del token</label>
+            <input id="mp-color" type="color" value="#3498db"/>
+          </div>
+          <div class="campo">
+            <label>Backstory</label>
+            <textarea id="mp-backstory" rows="5" placeholder="Historia del personaje..."></textarea>
+          </div>
+        </div>
+        <div class="modal-col">
+          <div class="campo">
+            <label>Estadísticas</label>
+          </div>
+          <div id="mp-stats-grid" class="stats-grid"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primario" id="btn-guardar-personaje">💾 Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-personaje">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Modificar estado (HP/MP/efectos) -->
+<div id="modal-estado" class="modal-overlay oculto">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>Modificar estado</h2>
+      <button class="btn-icono" id="modal-estado-cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="campo">
+        <label>HP actual</label>
+        <input id="me-hp" type="number" min="0"/>
+      </div>
+      <div class="campo">
+        <label>MP actual</label>
+        <input id="me-mp" type="number" min="0"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primario" id="btn-aplicar-estado">Aplicar</button>
+      <button class="btn-secundario" id="btn-cancelar-estado">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Seleccionar ataque -->
+<div id="modal-ataque" class="modal-overlay oculto">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>⚔️ Atacar: <span id="ma-objetivo"></span></h2>
+      <button class="btn-icono" id="modal-ataque-cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cmd-seccion-titulo">Elige tipo de ataque</div>
+      <div id="ma-habilidades"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Menú contextual (click derecho en token) -->
+<div id="ctx-menu" class="ctx-menu oculto">
+  <div id="ctx-items"></div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

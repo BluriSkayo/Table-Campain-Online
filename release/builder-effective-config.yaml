@@ -1,0 +1,15 @@
+directories:
+  output: ../release
+  buildResources: build
+appId: com.mesarol.app
+productName: Mesa de Rol
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+files:
+  - filter:
+      - main.js
+      - src/**/*
+electronVersion: 34.5.8
