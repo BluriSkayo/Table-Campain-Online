@@ -1,0 +1,7 @@
+# Habilidades globales (definidas por el GM)
+# Ataque siempre está presente y no se puede eliminar
+habilidades:
+  - nombre: Ataque
+    formula: "40"
+    stat_base: Fuerza
+    descripcion: "Ataque básico (daño fijo: 40)"

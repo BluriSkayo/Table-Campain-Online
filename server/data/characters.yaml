@@ -1,0 +1,70 @@
+personajes:
+  BluriSkayo:
+  - backstory: ''
+    clase: Lol
+    color: '#3498db'
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    nombre: Testeo
+    objetos: []
+    owner: BluriSkayo
+    stats:
+      Defensa Mágica: 10
+      HP: 100
+      HP_max: 100
+      MP: 100
+      MP_max: 100
+      Magia: 10
+  BluriTest:
+  - backstory: ''
+    clase: Hechicero
+    color: '#3498db'
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    nombre: Rey Juliet
+    objetos: []
+    owner: BluriTest
+    stats:
+      Defensa Mágica: 10
+      HP: 100
+      HP_max: 100
+      MP: 100
+      MP_max: 100
+      Magia: 1000
+  a:
+  - backstory: ''
+    clase: Aventurero
+    color: '#3498db'
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    nombre: Allycat
+    objetos: []
+    owner: a
+    stats:
+      Defensa Mágica: 10
+      HP: 100
+      HP_max: 100
+      MP: 100
+      MP_max: 100
+      Magia: 10

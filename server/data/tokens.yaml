@@ -1,0 +1,55 @@
+combate:
+  activo: false
+  turno: []
+  turno_actual: 0
+tokens:
+  BluriTest_Rey Juliet:
+    clase: Hechicero
+    color: '#3498db'
+    es_enemigo: false
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    owner: BluriTest
+    personaje: Rey Juliet
+    stats:
+      Defensa Mágica: 10
+      HP: 100
+      HP_max: 100
+      MP: 100
+      MP_max: 100
+      Magia: 1000
+    token_id: BluriTest_Rey Juliet
+    x: 542
+    y: 497
+  a_Allycat:
+    clase: Aventurero
+    color: '#3498db'
+    es_enemigo: false
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    owner: a
+    personaje: Allycat
+    stats:
+      Defensa Mágica: 10
+      HP: 29
+      HP_max: 100
+      MP: 89
+      MP_max: 100
+      Magia: 10
+    token_id: a_Allycat
+    x: 305
+    y: 376

@@ -152,7 +152,7 @@ textarea:focus{border-color:var(--accent)}
 
 /* Música */
 #musica-lista{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
-.musica-item{padding:7px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:12px;transition:border-color .15s;display:flex;align-items:center;gap:8px}
+.musica-item{padding:7px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:12px;transition:border-color .15s;display:flex;align-items:center;gap:8px;user-select:none}
 .musica-item:hover{border-color:var(--border2)}
 .musica-item.activo{border-color:var(--gold)}
 .musica-item-ico{font-size:14px}

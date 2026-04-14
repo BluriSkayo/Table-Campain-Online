@@ -3,6 +3,8 @@
 const path = require("path");
 const fs   = require("fs");
 
+// ClientStorage se carga desde client-storage.js como window.ClientStorage
+
 const WS_URL        = "ws://localhost:8765";
 const RESOURCES     = path.join(__dirname, "..", "..", "resources");
 const LOGS_DIR      = path.join(__dirname, "..", "..", "logs");
@@ -206,6 +208,32 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   });
 });
 
+// ── Autologin + carga de personajes offline ─────────────────────────
+(function restaurarSesion() {
+  try {
+    const sesion = ClientStorage.cargarSesion();
+    if (sesion?.username) {
+      inpNombre.value = sesion.username;
+      inpNombre.style.borderColor = "var(--green)";
+      setTimeout(() => { inpNombre.style.borderColor = ""; }, 2000);
+    }
+
+    // Cargar personajes de la caché local para modo offline
+    const cache = ClientStorage.cargarPersonajesLocales();
+    if (cache.personajes.length > 0) {
+      misPersonajes = cache.personajes;
+      // Mostrar indicador de datos offline en la pantalla de inicio
+      const aviso = document.createElement("div");
+      aviso.style.cssText = "text-align:center;font-size:11px;color:var(--muted);margin-top:8px";
+      const syncDate = cache.ultima_sync
+        ? new Date(cache.ultima_sync).toLocaleString()
+        : "desconocida";
+      aviso.textContent = `📦 ${cache.personajes.length} personaje(s) en caché local (sync: ${syncDate})`;
+      document.querySelector(".inicio-logo")?.appendChild(aviso);
+    }
+  } catch(e) { console.warn("[autologin]", e); }
+})();
+
 // Campañas estáticas (offline, sin servidor):
 // Mostramos siempre al menos "local"
 const campanasPorDefecto = {
@@ -264,12 +292,17 @@ function procesar(msg) {
       turnoActual        = msg.turno_actual || 0;
       combateActivo      = msg.combate_activo || false;
       misPersonajes      = msg.personajes || [];
+      // Sincronizar personajes con caché local al conectar
+      try { ClientStorage.guardarPersonajesLocales(misPersonajes); } catch(e) {}
       mapaActivo         = msg.mapa_activo || null;
       habilidadesGlobales= msg.habilidades_globales || [];
       if (esGM && msg.todos_personajes) todosPersonajesGM = msg.todos_personajes;
 
       tbNombre.textContent  = miNombre;
       tbCampana.textContent = campanaActual?.nombre || "local";
+
+      // Guardar sesión para autologin en la próxima apertura
+      try { ClientStorage.guardarSesion(miNombre, campanaActual?.nombre || "local"); } catch(e) {}
       if (esGM) { tbRol.classList.remove("oculto"); }
       document.querySelectorAll(".gm-only").forEach(el => {
         if(esGM) el.classList.remove("oculto");
@@ -287,7 +320,7 @@ function procesar(msg) {
       renderMisPersonajes();
       renderGMPlantilla();
       renderGMPlantillasGuardadas();
-      if(esGM) renderGMHabilidades();
+      if(esGM) { renderGMHabilidades(); renderGMMapaLista(); }
       break;
 
     case "modo_cambiado":
@@ -311,10 +344,23 @@ function procesar(msg) {
     case "personaje_actualizado":
       misPersonajes = msg.personajes || [];
       renderMisPersonajes();
+      // Sincronizar caché local
+      try { ClientStorage.guardarPersonajesLocales(misPersonajes); } catch(e) {}
       if(msg.personaje && personajeActivo?.nombre === msg.personaje.nombre){
         personajeActivo = msg.personaje;
         mostrarFichaPersonaje(personajeActivo);
         renderObjetos(personajeActivo);
+      }
+      // Actualizar la ficha flotante si está abierta para este personaje
+      if(msg.personaje){
+        const fichaId = `ficha-flotante-${msg.personaje.nombre.replace(/[^a-zA-Z0-9]/g,"-")}`;
+        const fichaExistente = document.getElementById(fichaId);
+        if(fichaExistente){
+          const infoTab = fichaExistente.querySelector(`#${fichaId}-info`);
+          const habsTab = fichaExistente.querySelector(`#${fichaId}-habs`);
+          if(infoTab) rellenarTabInfo(fichaExistente, fichaId, msg.personaje);
+          if(habsTab) rellenarTabHabilidades(fichaExistente, fichaId, msg.personaje);
+        }
       }
       break;
 
@@ -325,6 +371,8 @@ function procesar(msg) {
     case "lista_personajes":
       misPersonajes = msg.personajes || [];
       renderMisPersonajes();
+      // Sincronizar caché local
+      try { ClientStorage.guardarPersonajesLocales(misPersonajes); } catch(e) {}
       // Refresh active character if it was updated
       if(personajeActivo) {
         const p = misPersonajes.find(x=>x.nombre===personajeActivo.nombre);
@@ -374,6 +422,15 @@ function procesar(msg) {
     case "habilidades_globales_actualizadas":
       habilidadesGlobales = msg.habilidades_globales || [];
       if(esGM) renderGMHabilidades();
+      // Refresh habilidades tab in any open floating fichas
+      document.querySelectorAll(".ficha-flotante").forEach(modal => {
+        const idParts = modal.id.replace("ficha-flotante-","");
+        const p = misPersonajes.find(x=>x.nombre.replace(/[^a-zA-Z0-9]/g,"-")===idParts);
+        if(p) {
+          const habsTab = modal.querySelector(`#${modal.id}-habs`);
+          if(habsTab) rellenarTabHabilidades(modal, modal.id, p);
+        }
+      });
       break;
 
     case "combate_iniciado":
@@ -406,6 +463,16 @@ function procesar(msg) {
       if(msg.tokens) tokens = msg.tokens;
       if(msg.texto) agregarChat("Sistema", msg.texto, "sistema");
       dibujar(); break;
+
+    case "personajes_actualizados":
+      // El servidor notifica al jugador que sus personajes fueron actualizados (ej: por edición de habilidad global)
+      misPersonajes = msg.personajes || [];
+      renderMisPersonajes();
+      if(personajeActivo) {
+        const p = misPersonajes.find(x=>x.nombre===personajeActivo.nombre);
+        if(p) { personajeActivo=p; mostrarFichaPersonaje(p); }
+      }
+      break;
   }
 }
 
@@ -684,6 +751,8 @@ function onContextMenu(e){
         agregarCtxItem(`🎒 Usar: ${obj.nombre}`,()=>usarObjeto(tid,obj.nombre));
       });
     }
+    agregarCtxSep();
+    agregarCtxItem("🚪 Retirar token",()=>retirarTokenPropio(tid),"peligro");
   } else {
     agregarCtxItem("🔍 Ver datos",()=>abrirFichaTokenVisible(tid));
     agregarCtxSep();
@@ -701,6 +770,16 @@ function onContextMenu(e){
   ctxMenu.style.top =`${Math.min(e.clientY, window.innerHeight-200)}px`;
   ctxMenu.classList.remove("oculto");
   e.stopPropagation();
+}
+
+function retirarTokenPropio(tid) {
+  const t = tokens[tid];
+  if (!t || t.owner !== miNombre) return;  // doble verificación de seguridad
+  enviar({ tipo: "gm_borrar_token", token_id: tid });
+  // Nota: usamos gm_borrar_token porque es el mismo mensaje de borrado de token
+  // pero el servidor valida que solo el GM o el dueño puede hacerlo.
+  // Como el servidor actual solo permite GM borrar tokens, añadimos un tipo propio:
+  enviar({ tipo: "retirar_token", token_id: tid });
 }
 
 function agregarCtxItem(label,fn,cls=""){
@@ -1759,6 +1838,7 @@ btnVolverIni.addEventListener("click",()=>{
   tokens={}; misPersonajes=[]; personajeActivo=null; tokenSeleccionado=null;
   mapaActivo=null; mapaImg=null;
   tbRol.classList.add("oculto");
+  // Nota: la sesión se mantiene para autologin (no la borramos aquí)
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -1773,6 +1853,23 @@ function mostrarErrorUnion(txt){
 // TECLA ESCAPE — cierra modales/menús en orden de prioridad
 // ─────────────────────────────────────────────────────────────────
 document.addEventListener("keydown", e => {
+  // Suprimir (Delete) — retirar token propio seleccionado del mapa
+  if (e.key === "Delete" || e.key === "Supr") {
+    // No actuar si el foco está en un input o textarea
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    if (tokenSeleccionado && tokens[tokenSeleccionado]) {
+      const t = tokens[tokenSeleccionado];
+      if (t.owner === miNombre) {
+        retirarTokenPropio(tokenSeleccionado);
+        tokenSeleccionado = null;
+        ocultarGMSel();
+        dibujar();
+      }
+    }
+    return;
+  }
+
   if (e.key !== "Escape") return;
 
   // 1. Menú contextual

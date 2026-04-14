@@ -1,0 +1,16 @@
+usuarios:
+  BluriSkayo:
+    personajes:
+    - Testeo
+    ultima_campana: local
+    username: BluriSkayo
+  BluriTest:
+    personajes:
+    - Rey Juliet
+    ultima_campana: local
+    username: BluriTest
+  a:
+    personajes:
+    - Allycat
+    ultima_campana: local
+    username: a

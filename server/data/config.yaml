@@ -1,0 +1,17 @@
+# Configuración general del servidor
+servidor:
+  host: localhost
+  port: 8765
+  gm_password: gm1234
+
+juego:
+  max_mensajes: 100
+  colores_default:
+    - "#3498db"
+    - "#2ecc71"
+    - "#f39c12"
+    - "#9b59b6"
+    - "#1abc9c"
+    - "#e67e22"
+    - "#e91e63"
+    - "#e74c3c"

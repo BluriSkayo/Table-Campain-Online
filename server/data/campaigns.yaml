@@ -1,0 +1,44 @@
+campanas:
+  local:
+    jugadores: []
+    mapa_activo: null
+    modo: local
+    nombre: local
+mensajes:
+- autor: Bluri
+  texto: /admin
+- autor: Combate
+  texto: '⚔️ Bluri → Enemigo: 14 daño | d20=19 (sin plantilla)'
+- autor: Combate
+  texto: '⚔️ Bluri → Test: 5 daño | d20=10 (sin plantilla)'
+- autor: Combate
+  texto: '⚔️ Bluri → Enemigo: 5 daño | d20=10 (sin plantilla)'
+- autor: Combate
+  texto: '⚔️ Bluri → Joaco: 1 daño | d20=6 (sin plantilla)'
+- autor: Combate
+  texto: 💨 Bluri atacó a Test → Fallo | d20=1 (sin plantilla)
+- autor: Combate
+  texto: '⚔️ Bluri → Test: 11 daño | d20=16 (sin plantilla)'
+- autor: Combate
+  texto: '⚔️ Bluri → Enemigo: 1 daño | d20=2 (sin plantilla)'
+- autor: Combate
+  texto: '⚔️ Bluri → Enemigo: 8 daño | d20=13 (sin plantilla)'
+- autor: a
+  texto: test
+- autor: BluriTest
+  texto: 🎲 tiró 1d4 → **1**
+- autor: BluriTest
+  texto: 🎲 tiró 1d100 → **93**
+- autor: BluriTest
+  texto: 🎲 tiró 13d22 → **32**
+- autor: Combate
+  texto: '⚔️ Rey Juliet usó Ataque en Allycat: 40 daño | [40] →  = 40'
+plantilla:
+- dado: d20
+  nombre: Magia
+  tipo: ofensiva
+- dado: d20
+  nombre: Defensa Mágica
+  tipo: defensiva
+plantilla_bloqueada: false
+plantillas_guardadas: {}

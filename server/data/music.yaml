@@ -1,0 +1,3 @@
+# Estado de música sincronizada (controlada por GM)
+musica:
+  archivo_actual: null  # nombre del archivo reproduciendo, o null
