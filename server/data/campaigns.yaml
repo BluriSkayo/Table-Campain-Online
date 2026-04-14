@@ -1,7 +1,25 @@
 campanas:
   local:
+    capas_mapa:
+    - archivo: test map.png
+      scaleX: 2.007121674355971
+      scaleY: 2.1999574851138206
+      visible: true
+      x: -18.327475534457562
+      y: 70.21367713705155
+    - archivo: null
+      scaleX: 1.0
+      scaleY: 1.0
+      visible: true
+      x: 0
+      y: 0
+    - archivo: null
+      scaleX: 1.0
+      scaleY: 1.0
+      visible: true
+      x: 0
+      y: 0
     jugadores: []
-    mapa_activo: test map.png
     modo: local
     nombre: local
 mensajes:
@@ -41,6 +59,8 @@ mensajes:
   texto: 🎲 tiró 5d20 → 17 + 13 + 6 + 13 + 7 = **56**
 - autor: Combate
   texto: '⚔️ Testeo usó Ataque en Allycat: 40 daño | [40] →  = 40 ☠️ Allycat derrotado!'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque en Pobre Victima: 40 daño | [40] →  = 40'
 plantilla:
 - dado: d20
   nombre: Magia

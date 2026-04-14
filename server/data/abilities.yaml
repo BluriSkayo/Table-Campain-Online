@@ -1,7 +1,9 @@
-# Habilidades globales (definidas por el GM)
-# Ataque siempre está presente y no se puede eliminar
 habilidades:
-  - nombre: Ataque
-    formula: "40"
-    stat_base: Fuerza
-    descripcion: "Ataque básico (daño fijo: 40)"
+- descripcion: 'Ataque básico (daño fijo: 40)'
+  formula: '40'
+  nombre: Ataque
+  stat_base: Fuerza
+- descripcion: Ataca directamente a la defensa mágica del objetivo
+  formula: aMagia - oDefensa Mágica
+  nombre: Ataque de Test
+  stat_base: Fuerza

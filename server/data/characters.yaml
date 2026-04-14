@@ -1,7 +1,33 @@
 personajes:
   BluriSkayo:
   - backstory: ''
-    clase: Lol
+    clase: Personaje de Test
+    color: '#3498db'
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    - descripcion: Ataca directamente a la defensa mágica del objetivo
+      formula: aMagia - oDefensa Mágica
+      nombre: Ataque de Test
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    nombre: Testeo
+    objetos: []
+    owner: BluriSkayo
+    stats:
+      Defensa Mágica: 10
+      HP: 100
+      HP_max: 100
+      MP: 100
+      MP_max: 100
+      Magia: 10
+  - backstory: ''
+    clase: Personaje de Test
     color: '#3498db'
     habilidades:
     - descripcion: 'Ataque básico (daño fijo: 40)'
@@ -12,8 +38,12 @@ personajes:
     - HP
     - nombre
     - clase
-    nombre: Testeo
-    objetos: []
+    nombre: Víctima de Golpes
+    objetos:
+    - descripcion: Restaura 40 PS
+      efecto: heal_hp
+      nombre: Poción
+      valor: 40
     owner: BluriSkayo
     stats:
       Defensa Mágica: 10
