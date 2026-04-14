@@ -362,23 +362,6 @@ async def manejar(ws, msg: dict):
         guardar_tokens_y_combate()
         await broadcast({"tipo":"token_añadido","token":tokens[tid]})
 
-    # ─── GM: AÑADIR ENEMIGO ──────────────────────────────────────
-    elif tipo == "gm_añadir_token" and es_gm:
-        nom_e = msg.get("nombre","Enemigo")
-        tid   = nom_e if nom_e not in tokens else nom_e + str(random.randint(2,99))
-        stats = {s["nombre"]:10 for s in campaigns["plantilla"]}
-        stats.update({"HP":msg.get("hp",30),"HP_max":msg.get("hp",30),"MP":0,"MP_max":0})
-        if msg.get("stats"): stats.update(msg["stats"])
-        tokens[tid] = {
-            "token_id":tid,"personaje":nom_e,"owner":"__gm__",
-            "x":msg.get("x",300),"y":msg.get("y",300),
-            "color":msg.get("color","#e74c3c"),"clase":msg.get("clase","Enemigo"),
-            "stats":stats,"habilidades":[copy.deepcopy(storage.HABILIDAD_ATAQUE_BASE)],
-            "info_visible":["HP","nombre"],"es_enemigo":True,
-        }
-        guardar_tokens_y_combate()
-        await broadcast({"tipo":"token_añadido","token":tokens[tid]})
-
     # ─── GM: BORRAR TOKEN ────────────────────────────────────────
     elif tipo == "gm_borrar_token" and es_gm:
         tid = msg.get("token_id")

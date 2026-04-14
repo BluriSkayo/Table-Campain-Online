@@ -121,10 +121,6 @@ const gfCancelar        = $("gf-cancelar");
 const gmPlantNom        = $("gm-plant-nom");
 const btnGuardarPlant   = $("btn-guardar-plantilla");
 const gmListaPlantillas = $("gm-lista-plantillas");
-const gmEnNombre        = $("gm-en-nombre");
-const gmEnHp            = $("gm-en-hp");
-const gmEnColor         = $("gm-en-color");
-const btnAñadirEnemigo  = $("btn-añadir-enemigo");
 const btnIniciarCombate = $("btn-iniciar-combate");
 const btnTerminarCombate= $("btn-terminar-combate");
 const btnSigTurno       = $("btn-sig-turno");
@@ -752,6 +748,8 @@ function onContextMenu(e){
       });
     }
     agregarCtxSep();
+    agregarCtxItem("⚔️ Atacar",()=>abrirModalAtaque(tid),"peligro");
+    agregarCtxSep();
     agregarCtxItem("🚪 Retirar token",()=>retirarTokenPropio(tid),"peligro");
   } else {
     agregarCtxItem("🔍 Ver datos",()=>abrirFichaTokenVisible(tid));
@@ -775,10 +773,6 @@ function onContextMenu(e){
 function retirarTokenPropio(tid) {
   const t = tokens[tid];
   if (!t || t.owner !== miNombre) return;  // doble verificación de seguridad
-  enviar({ tipo: "gm_borrar_token", token_id: tid });
-  // Nota: usamos gm_borrar_token porque es el mismo mensaje de borrado de token
-  // pero el servidor valida que solo el GM o el dueño puede hacerlo.
-  // Como el servidor actual solo permite GM borrar tokens, añadimos un tipo propio:
   enviar({ tipo: "retirar_token", token_id: tid });
 }
 
@@ -1054,8 +1048,15 @@ function renderHabilidadesFlotante(cont, p){
 // MODAL ATAQUE
 // ─────────────────────────────────────────────────────────────────
 function abrirModalAtaque(tidDefensor){
-  // Necesitamos un token atacante propio
-  const miToken=Object.entries(tokens).find(([,t])=>t.owner===miNombre);
+  // Usar tokenSeleccionado si es propio (o GM), sino el primer token propio
+  let miToken;
+  if(tokenSeleccionado && tokens[tokenSeleccionado] &&
+     (tokens[tokenSeleccionado].owner===miNombre || esGM)){
+    miToken=[tokenSeleccionado, tokens[tokenSeleccionado]];
+  } else {
+    const found=Object.entries(tokens).find(([,t])=>t.owner===miNombre);
+    miToken=found;
+  }
   if(!miToken){ agregarChat("Sistema","No tienes un token en el tablero.","sistema"); return; }
   tokenAtacanteId=miToken[0]; tokenDefensorId=tidDefensor;
 
@@ -1392,15 +1393,6 @@ btnGuardarPlant.addEventListener("click",()=>{
   enviar({tipo:"gm_guardar_plantilla",nombre_plantilla:nom}); gmPlantNom.value="";
 });
 btnDesbloquear.addEventListener("click",()=>enviar({tipo:"gm_desbloquear_plantilla"}));
-
-// GM: enemigo
-btnAñadirEnemigo.addEventListener("click",()=>{
-  enviar({tipo:"gm_añadir_token",nombre:gmEnNombre.value.trim()||"Goblin",
-          hp:parseInt(gmEnHp.value)||30,color:gmEnColor.value,
-          x:Math.round(canvas?.width/2||400)+(Math.random()-.5)*300|0,
-          y:Math.round(canvas?.height/2||300)+(Math.random()-.5)*200|0});
-  gmEnNombre.value="";
-});
 
 // GM: combate
 btnIniciarCombate.addEventListener("click",()=>enviar({tipo:"gm_iniciar_combate"}));
