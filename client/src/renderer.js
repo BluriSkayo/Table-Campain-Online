@@ -1148,6 +1148,11 @@ function renderMisPersonajes(){
     div.addEventListener("click",()=>{
       personajeActivo=p; renderMisPersonajes();
       abrirFichaFlotante(p);
+      // Si el panel de habilidades está abierto, actualizarlo también
+      if(document.getElementById("panel-habilidades") &&
+         !document.getElementById("panel-habilidades").classList.contains("oculto")){
+        renderHabilidades(p);
+      }
     });
     listaMisPersonajes.appendChild(div);
   });
@@ -1822,6 +1827,15 @@ volSfx.addEventListener("input",()=>{
 function cambiarTab(panelId){
   cmdTabs.forEach(t=>t.classList.toggle("activo",t.dataset.panel===panelId));
   cmdPaneles.forEach(p=>p.classList.toggle("oculto",p.id!==`panel-${panelId}`));
+  // Al abrir el panel de habilidades, renderizar con el personaje activo
+  if(panelId === "habilidades"){
+    if(personajeActivo){
+      renderHabilidades(personajeActivo);
+    } else {
+      listaHabilidades.innerHTML = "";
+      habilidadesSinPersonaje.classList.remove("oculto");
+    }
+  }
 }
 cmdTabs.forEach(tab=>{
   tab.addEventListener("click",()=>cambiarTab(tab.dataset.panel));

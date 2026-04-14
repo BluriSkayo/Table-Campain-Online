@@ -1,7 +1,7 @@
 campanas:
   local:
     jugadores: []
-    mapa_activo: null
+    mapa_activo: test map.png
     modo: local
     nombre: local
 mensajes:
@@ -33,6 +33,14 @@ mensajes:
   texto: 🎲 tiró 13d22 → **32**
 - autor: Combate
   texto: '⚔️ Rey Juliet usó Ataque en Allycat: 40 daño | [40] →  = 40'
+- autor: BluriSkayo
+  texto: 🎲 tiró 1d20 → **17**
+- autor: BluriSkayo
+  texto: 🎲 tiró 2d20 → 10 + 7 = **17**
+- autor: BluriSkayo
+  texto: 🎲 tiró 5d20 → 17 + 13 + 6 + 13 + 7 = **56**
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque en Allycat: 40 daño | [40] →  = 40 ☠️ Allycat derrotado!'
 plantilla:
 - dado: d20
   nombre: Magia
