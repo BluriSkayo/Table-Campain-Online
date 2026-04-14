@@ -26,9 +26,23 @@ let modoEdicion = "crear";    // "crear" | "editar"
 let tokenAtacanteId = null;
 let tokenDefensorId = null;
 let campanaActual = null;
-let mapaActivo = null;
-let mapaImg = null;
 let fichaZIndex = 1000;       // z-index base para fichas flotantes
+
+// ── Cámara y mapa virtual ─────────────────────────────────────────
+const MAP_W = 4000, MAP_H = 4000;
+let camX = 0, camY = 0, camZoom = 1.0;
+
+// ── Capas de imagen de mapa (3 capas) ────────────────────────────
+let capasMapa = [
+  {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
+  {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
+  {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
+];
+const capaImgs = [null, null, null];
+
+// ── Modo edición de mapa (solo GM) ───────────────────────────────
+let modoEditarMapa = false;
+let mapaEditArrastrando = null; // null o {tipo, capaIdx, ...}
 
 // ── Audio ─────────────────────────────────────────────────────────
 let audioCtx = null, audioSource = null, audioGain = null;
@@ -290,7 +304,15 @@ function procesar(msg) {
       misPersonajes      = msg.personajes || [];
       // Sincronizar personajes con caché local al conectar
       try { ClientStorage.guardarPersonajesLocales(misPersonajes); } catch(e) {}
-      mapaActivo         = msg.mapa_activo || null;
+      // Capas de mapa
+      if (msg.capas_mapa && Array.isArray(msg.capas_mapa)) {
+        capasMapa = msg.capas_mapa;
+      } else if (msg.mapa_activo) {
+        // Retrocompatibilidad con formato antiguo
+        capasMapa[0] = {archivo: msg.mapa_activo, x:0, y:0, scaleX:1, scaleY:1, visible:true};
+        capasMapa[1] = {archivo:null, x:0, y:0, scaleX:1, scaleY:1, visible:true};
+        capasMapa[2] = {archivo:null, x:0, y:0, scaleX:1, scaleY:1, visible:true};
+      }
       habilidadesGlobales= msg.habilidades_globales || [];
       if (esGM && msg.todos_personajes) todosPersonajesGM = msg.todos_personajes;
 
@@ -310,7 +332,7 @@ function procesar(msg) {
       panelUnion.classList.add("oculto");
 
       iniciarCanvas();
-      if(mapaActivo) cargarImagenMapa(mapaActivo);
+      capasMapa.forEach((_, i) => cargarCapaMapa(i));
       cargarMusica();
       actualizarUI();
       renderMisPersonajes();
@@ -449,9 +471,20 @@ function procesar(msg) {
       agregarChat("⚔️",msg.texto_sistema,"combate");
       dibujar(); break;
 
+    case "capas_mapa_actualizadas":
+      if (msg.capas_mapa && Array.isArray(msg.capas_mapa)) {
+        capasMapa = msg.capas_mapa;
+        capasMapa.forEach((_, i) => cargarCapaMapa(i));
+      }
+      if(esGM) renderGMMapaLista();
+      // Actualizar panel de capas si está abierto
+      actualizarPanelCapas();
+      break;
+
     case "mapa_cambiado":
-      mapaActivo = msg.archivo || null;
-      cargarImagenMapa(mapaActivo);
+      // Retrocompatibilidad: convertir a capa 0
+      capasMapa[0] = {archivo: msg.archivo || null, x:0, y:0, scaleX:1, scaleY:1, visible:true};
+      cargarCapaMapa(0);
       if(esGM) renderGMMapaLista();
       break;
 
@@ -503,10 +536,39 @@ function iniciarCanvas() {
   canvas.addEventListener("mousemove", onMove);
   canvas.addEventListener("mouseup",   onUp);
   canvas.addEventListener("contextmenu", onContextMenu);
+
+  // Zoom con rueda del ratón
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = Math.max(0.15, Math.min(3.0, camZoom * factor));
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const my = e.clientY - r.top;
+    // Centrar el zoom en la posición del cursor
+    camX = mx - (mx - camX) * (newZoom / camZoom);
+    camY = my - (my - camY) * (newZoom / camZoom);
+    camZoom = newZoom;
+    dibujar();
+  }, { passive: false });
+
   document.addEventListener("click", () => {
     ctxMenu.classList.add("oculto");
     $("ctx-submenu").classList.add("oculto");
   });
+
+  // Botón modo edición de mapa
+  const btnModoMapa = $("btn-modo-mapa");
+  if (btnModoMapa) {
+    btnModoMapa.addEventListener("click", e => {
+      e.stopPropagation();
+      modoEditarMapa = !modoEditarMapa;
+      btnModoMapa.classList.toggle("activo", modoEditarMapa);
+      if (modoEditarMapa) abrirPanelCapas();
+      else cerrarPanelCapas();
+      dibujar();
+    });
+  }
 
   // Drag & Drop — soltar personaje desde lista al canvas
   canvas.addEventListener("dragover", e => {
@@ -532,25 +594,38 @@ function iniciarCanvas() {
 }
 
 function ajustar() {
+  if (!canvas) return;
   const r = canvas.parentElement.getBoundingClientRect();
-  canvas.width=r.width; canvas.height=r.height; dibujar();
+  canvas.width = r.width; canvas.height = r.height; dibujar();
 }
 
 function dibujar() {
   if(!ctx) return;
   const W=canvas.width, H=canvas.height;
 
-  // Fondo: imagen de mapa o color sólido
-  if(mapaImg) {
-    ctx.drawImage(mapaImg, 0, 0, W, H);
-  } else {
-    ctx.fillStyle="#0d0d1a"; ctx.fillRect(0,0,W,H);
-  }
+  // Fondo sólido oscuro
+  ctx.fillStyle="#0d0d1a"; ctx.fillRect(0,0,W,H);
 
-  ctx.strokeStyle="rgba(255,255,255,0.03)"; ctx.lineWidth=1;
-  for(let x=0;x<W;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Aplicar transformación de cámara
+  ctx.save();
+  ctx.translate(camX, camY);
+  ctx.scale(camZoom, camZoom);
 
+  // Capas de imagen de mapa (de abajo hacia arriba)
+  capasMapa.forEach((capa, i) => {
+    if(!capa.visible || !capaImgs[i]) return;
+    const img = capaImgs[i];
+    ctx.drawImage(img, capa.x, capa.y,
+                  img.naturalWidth * capa.scaleX,
+                  img.naturalHeight * capa.scaleY);
+  });
+
+  // Grilla sobre todo el mundo
+  ctx.strokeStyle="rgba(255,255,255,0.03)"; ctx.lineWidth=1/camZoom;
+  for(let x=0;x<MAP_W;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,MAP_H);ctx.stroke();}
+  for(let y=0;y<MAP_H;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(MAP_W,y);ctx.stroke();}
+
+  // Tokens (siempre visibles, incluso en modo edición de mapa)
   const turnoNom = combateActivo && turno.length ? turno[turnoActual] : null;
 
   Object.entries(tokens).forEach(([tid, t]) => {
@@ -560,8 +635,8 @@ function dibujar() {
     const {x,y,color} = t;
 
     // Anillos
-    if(esActivo){ ctx.beginPath();ctx.arc(x,y,RADIO+9,0,Math.PI*2);ctx.strokeStyle="#f0c040";ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]); }
-    if(esSel)   { ctx.beginPath();ctx.arc(x,y,RADIO+5,0,Math.PI*2);ctx.strokeStyle="rgba(255,255,255,.4)";ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]); }
+    if(esActivo){ ctx.beginPath();ctx.arc(x,y,RADIO+9,0,Math.PI*2);ctx.strokeStyle="#f0c040";ctx.lineWidth=2/camZoom;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]); }
+    if(esSel)   { ctx.beginPath();ctx.arc(x,y,RADIO+5,0,Math.PI*2);ctx.strokeStyle="rgba(255,255,255,.4)";ctx.lineWidth=1.5/camZoom;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]); }
 
     ctx.shadowColor=color; ctx.shadowBlur=esMio?18:8;
     ctx.beginPath(); ctx.arc(x,y,RADIO,0,Math.PI*2);
@@ -577,30 +652,63 @@ function dibujar() {
     }
 
     ctx.strokeStyle=esMio?"#fff":"rgba(255,255,255,.35)";
-    ctx.lineWidth=esMio?2.5:1.5; ctx.stroke();
+    ctx.lineWidth=esMio?2.5/camZoom:1.5/camZoom; ctx.stroke();
     ctx.shadowBlur=0;
 
     if(!img){
-      ctx.fillStyle="#fff"; ctx.font=`bold 15px Segoe UI`;
+      ctx.fillStyle="#fff"; ctx.font=`bold ${15/camZoom}px Segoe UI`;
       ctx.textAlign="center"; ctx.textBaseline="middle";
       ctx.fillText((t.personaje||tid)[0].toUpperCase(),x,y);
     }
 
     // Nombre debajo
     ctx.fillStyle=esMio?"#fff":"rgba(255,255,255,.6)";
-    ctx.font=`${esMio?"bold ":""}12px Segoe UI`;
+    ctx.font=`${esMio?"bold ":""}${12/camZoom}px Segoe UI`;
     ctx.textAlign="center"; ctx.textBaseline="top";
-    ctx.fillText(t.personaje||tid, x, y+RADIO+4);
+    ctx.fillText(t.personaje||tid, x, y+RADIO+4/camZoom);
 
     // Barra HP
     const hp=t.stats?.HP??0, hpMax=t.stats?.HP_max??1;
     const pct=Math.max(0,hp/hpMax);
-    const bx=x-RADIO,by=y-RADIO-12,bw=RADIO*2;
+    const bx=x-RADIO,by=y-RADIO-12/camZoom,bw=RADIO*2;
     ctx.fillStyle="rgba(0,0,0,.5)";
-    ctx.beginPath();ctx.roundRect(bx,by,bw,5,2);ctx.fill();
+    ctx.beginPath();ctx.roundRect(bx,by,bw,5/camZoom,2/camZoom);ctx.fill();
     ctx.fillStyle=pct>.5?"#27ae60":pct>.25?"#f39c12":"#c0392b";
-    ctx.beginPath();ctx.roundRect(bx,by,bw*pct,5,2);ctx.fill();
+    ctx.beginPath();ctx.roundRect(bx,by,bw*pct,5/camZoom,2/camZoom);ctx.fill();
   });
+
+  // Modo edición de mapa: mostrar bordes y handles en capas
+  if(modoEditarMapa){
+    capasMapa.forEach((capa, i) => {
+      const img = capaImgs[i];
+      if(!capa.visible || !img) return;
+      const w = img.naturalWidth * capa.scaleX;
+      const h = img.naturalHeight * capa.scaleY;
+      const hs = Math.max(8, 8 / camZoom); // handle size en world space
+
+      // Borde de la capa
+      ctx.strokeStyle = "rgba(240,192,64,0.6)";
+      ctx.lineWidth = 2 / camZoom;
+      ctx.setLineDash([8/camZoom, 4/camZoom]);
+      ctx.strokeRect(capa.x, capa.y, w, h);
+      ctx.setLineDash([]);
+
+      // Etiqueta de capa
+      ctx.fillStyle = "rgba(240,192,64,0.8)";
+      ctx.font = `bold ${13/camZoom}px Segoe UI`;
+      ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText(`Capa ${i+1}`, capa.x + 4/camZoom, capa.y + 4/camZoom);
+
+      // Handles en las 4 esquinas
+      ctx.fillStyle = "#f0c040";
+      [[capa.x, capa.y], [capa.x+w, capa.y],
+       [capa.x, capa.y+h], [capa.x+w, capa.y+h]].forEach(([hx, hy]) => {
+        ctx.fillRect(hx - hs/2, hy - hs/2, hs, hs);
+      });
+    });
+  }
+
+  ctx.restore();
 
   // Pre-cargar imágenes faltantes
   Object.entries(tokens).forEach(([tid,t])=>{
@@ -613,33 +721,144 @@ function dibujar() {
 // ─────────────────────────────────────────────────────────────────
 let arrastrando=null, offsetDrag={x:0,y:0}, mousoDown=false, mouseMoved=false;
 let lastClickTime=0, lastClickTid=null;
+let panStart=null; // {mx, my, camX0, camY0} — para pan de cámara
+
+// Helpers para modo edición de mapa
+function _worldXY(clientX, clientY) {
+  const r=canvas.getBoundingClientRect();
+  return {wx:(clientX-r.left-camX)/camZoom, wy:(clientY-r.top-camY)/camZoom};
+}
+
+function _capaHandleBajo(wx, wy) {
+  const hs = Math.max(12, 12 / camZoom);
+  for(let i=capasMapa.length-1; i>=0; i--){
+    const capa=capasMapa[i]; const img=capaImgs[i];
+    if(!capa.visible||!img) continue;
+    const w=img.naturalWidth*capa.scaleX, h=img.naturalHeight*capa.scaleY;
+    const corners=[
+      {n:'nw',x:capa.x,       y:capa.y      },
+      {n:'ne',x:capa.x+w,     y:capa.y      },
+      {n:'sw',x:capa.x,       y:capa.y+h    },
+      {n:'se',x:capa.x+w,     y:capa.y+h    },
+    ];
+    for(const c of corners){
+      if(Math.abs(wx-c.x)<=hs && Math.abs(wy-c.y)<=hs)
+        return {capaIdx:i, handle:c.n};
+    }
+  }
+  return null;
+}
+
+function _capaBajo(wx, wy) {
+  for(let i=capasMapa.length-1; i>=0; i--){
+    const capa=capasMapa[i]; const img=capaImgs[i];
+    if(!capa.visible||!img) continue;
+    const w=img.naturalWidth*capa.scaleX, h=img.naturalHeight*capa.scaleY;
+    if(wx>=capa.x&&wx<=capa.x+w&&wy>=capa.y&&wy<=capa.y+h) return i;
+  }
+  return null;
+}
 
 function tokenBajo(ex,ey){
   const r=canvas.getBoundingClientRect();
-  const mx=ex-r.left, my=ey-r.top;
+  const wx=(ex-r.left-camX)/camZoom, wy=(ey-r.top-camY)/camZoom;
   for(const [tid,t] of Object.entries(tokens)){
-    if(Math.hypot(mx-t.x,my-t.y)<=RADIO) return tid;
+    if(Math.hypot(wx-t.x,wy-t.y)<=RADIO) return tid;
   }
   return null;
 }
 
 function canvasXY(e){
   const r=canvas.getBoundingClientRect();
-  return {x:e.clientX-r.left, y:e.clientY-r.top};
+  const sx=e.clientX-r.left, sy=e.clientY-r.top;
+  return {x:(sx-camX)/camZoom, y:(sy-camY)/camZoom};
 }
 
 function onDown(e){
   if(e.button!==0) return;
   mouseMoved=false; mousoDown=true;
+
+  // Modo edición de mapa: drag de capa o handle
+  if(modoEditarMapa && esGM){
+    const {wx,wy}=_worldXY(e.clientX,e.clientY);
+    const hit=_capaHandleBajo(wx,wy);
+    if(hit){
+      const capa=capasMapa[hit.capaIdx]; const img=capaImgs[hit.capaIdx];
+      mapaEditArrastrando={
+        tipo:hit.handle, capaIdx:hit.capaIdx,
+        origX:capa.x, origY:capa.y,
+        origSX:capa.scaleX, origSY:capa.scaleY,
+        imgW:img.naturalWidth, imgH:img.naturalHeight,
+      };
+      canvas.style.cursor="nwse-resize";
+      return;
+    }
+    const ci=_capaBajo(wx,wy);
+    if(ci!==null){
+      const capa=capasMapa[ci];
+      mapaEditArrastrando={tipo:'mover',capaIdx:ci,startWX:wx,startWY:wy,origX:capa.x,origY:capa.y};
+      canvas.style.cursor="grabbing";
+      return;
+    }
+    // Click en zona vacía → pan de cámara
+    panStart={mx:e.clientX,my:e.clientY,camX0:camX,camY0:camY};
+    canvas.style.cursor="grab";
+    return;
+  }
+
+  // Modo normal
   const tid=tokenBajo(e.clientX,e.clientY);
-  if(!tid) return;
-  const t=tokens[tid];
-  if(t.owner!==miNombre && !esGM) return;
-  const {x,y}=canvasXY(e);
-  arrastrando=tid; offsetDrag={x:x-t.x,y:y-t.y};
-  canvas.style.cursor="grabbing";
+  if(tid){
+    const t=tokens[tid];
+    if(t.owner!==miNombre && !esGM) return;
+    const {x,y}=canvasXY(e);
+    arrastrando=tid; offsetDrag={x:x-t.x,y:y-t.y};
+    canvas.style.cursor="grabbing";
+  } else {
+    // Click en fondo vacío → pan de cámara
+    panStart={mx:e.clientX,my:e.clientY,camX0:camX,camY0:camY};
+    canvas.style.cursor="grab";
+  }
 }
 function onMove(e){
+  if(mapaEditArrastrando && modoEditarMapa){
+    mouseMoved=true;
+    const {wx,wy}=_worldXY(e.clientX,e.clientY);
+    const d=mapaEditArrastrando;
+    const capa=capasMapa[d.capaIdx];
+    if(d.tipo==='mover'){
+      capa.x=d.origX+(wx-d.startWX);
+      capa.y=d.origY+(wy-d.startWY);
+    } else {
+      // Resize: opposite corner stays fixed
+      const {origX:ox,origY:oy,origSX:osx,origSY:osy,imgW:iw,imgH:ih}=d;
+      const fixedX=ox+(d.tipo==='nw'||d.tipo==='sw'?iw*osx:0);
+      const fixedY=oy+(d.tipo==='nw'||d.tipo==='ne'?ih*osy:0);
+      if(d.tipo==='se'){
+        capa.scaleX=Math.max(0.05,(wx-ox)/iw);
+        capa.scaleY=Math.max(0.05,(wy-oy)/ih);
+      } else if(d.tipo==='sw'){
+        capa.scaleX=Math.max(0.05,(fixedX-wx)/iw);
+        capa.x=wx;
+        capa.scaleY=Math.max(0.05,(wy-oy)/ih);
+      } else if(d.tipo==='ne'){
+        capa.scaleX=Math.max(0.05,(wx-ox)/iw);
+        capa.scaleY=Math.max(0.05,(fixedY-wy)/ih);
+        capa.y=wy;
+      } else if(d.tipo==='nw'){
+        capa.scaleX=Math.max(0.05,(fixedX-wx)/iw);
+        capa.scaleY=Math.max(0.05,(fixedY-wy)/ih);
+        capa.x=wx; capa.y=wy;
+      }
+    }
+    dibujar(); return;
+  }
+  if(panStart){
+    mouseMoved=true;
+    camX=panStart.camX0+(e.clientX-panStart.mx);
+    camY=panStart.camY0+(e.clientY-panStart.my);
+    dibujar(); return;
+  }
   if(!arrastrando) return;
   mouseMoved=true;
   const {x,y}=canvasXY(e);
@@ -648,14 +867,39 @@ function onMove(e){
   dibujar();
 }
 function onUp(e){
-  if(e.button!==0){ arrastrando=null; return; }
+  if(e.button!==0){ arrastrando=null; panStart=null; mapaEditArrastrando=null; return; }
+
+  if(mapaEditArrastrando){
+    if(mouseMoved){
+      // Enviar cambio de capa al servidor
+      const i=mapaEditArrastrando.capaIdx;
+      const capa=capasMapa[i];
+      enviar({tipo:"gm_set_capa_mapa",capa:i,
+              archivo:capa.archivo,x:capa.x,y:capa.y,
+              scaleX:capa.scaleX,scaleY:capa.scaleY,visible:capa.visible});
+      actualizarPanelCapas();
+    }
+    mapaEditArrastrando=null;
+    canvas.style.cursor="crosshair";
+    return;
+  }
+
+  if(panStart){
+    panStart=null;
+    canvas.style.cursor="crosshair";
+    if(!mouseMoved){
+      // Click en fondo vacío → deseleccionar token
+      tokenSeleccionado=null; ocultarGMSel(); dibujar();
+    }
+    mousoDown=false; return;
+  }
+
   if(arrastrando){
     if(mouseMoved){
       const {x,y}=canvasXY(e);
       enviar({tipo:"mover_token",token_id:arrastrando,
               x:Math.round(x-offsetDrag.x),y:Math.round(y-offsetDrag.y)});
     } else {
-      // Click sin arrastre → seleccionar
       seleccionarToken(arrastrando);
     }
     arrastrando=null; canvas.style.cursor="crosshair";
@@ -665,7 +909,6 @@ function onUp(e){
     if(tid && tokens[tid]){
       const t=tokens[tid];
       if(t.owner!==miNombre && now-lastClickTime<300 && lastClickTid===tid){
-        // Doble clic en token enemigo → atacar
         abrirModalAtaque(tid);
         lastClickTime=0; lastClickTid=null;
       } else {
@@ -691,6 +934,8 @@ function seleccionarToken(tid){
 // ─────────────────────────────────────────────────────────────────
 function onContextMenu(e){
   e.preventDefault();
+  // En modo edición de mapa, no mostrar menú contextual de tokens
+  if(modoEditarMapa) return;
   const {x: cx, y: cy} = canvasXY(e);
   const tid=tokenBajo(e.clientX,e.clientY);
   const submenuEl = $("ctx-submenu");
@@ -1425,30 +1670,23 @@ btnBorrarGmToken.addEventListener("click",()=>{
   }
 });
 
-// GM: mapa de fondo
+// GM: mapa de fondo (ahora informativo, la edición se hace con btn-modo-mapa)
 function renderGMMapaLista(){
   const listaEl=$("mapa-lista");
-  const vacioEl=$("mapa-vacio");
   if(!listaEl) return;
-  let archivos=[];
-  try {
-    if(fs.existsSync(MAPS_DIR)){
-      archivos=fs.readdirSync(MAPS_DIR).filter(f=>/\.(png|jpg|jpeg|webp)$/i.test(f));
-    }
-  } catch(e){}
   listaEl.innerHTML="";
-  if(!archivos.length){ vacioEl.classList.remove("oculto"); return; }
-  vacioEl.classList.add("oculto");
-  archivos.forEach(f=>{
-    const div=document.createElement("div");
-    div.className=`mapa-item${mapaActivo===f?" activo":""}`;
-    div.textContent=f;
-    div.addEventListener("click",()=>enviar({tipo:"gm_set_mapa",archivo:f}));
-    listaEl.appendChild(div);
-  });
+  // Mostrar estado actual de las 3 capas
+  const algunaCapa = capasMapa.some(c=>c.archivo);
+  if(algunaCapa){
+    capasMapa.forEach((c,i)=>{
+      if(!c.archivo) return;
+      const div=document.createElement("div"); div.className="mapa-item activo";
+      div.style.fontSize="11px";
+      div.textContent=`Capa ${i+1}: ${c.archivo}`;
+      listaEl.appendChild(div);
+    });
+  }
 }
-
-$("btn-quitar-mapa").addEventListener("click",()=>enviar({tipo:"gm_set_mapa",archivo:null}));
 
 // Cargar lista de mapas cuando el GM abre el panel GM
 document.querySelector('[data-panel="gm"]').addEventListener("click",()=>{
@@ -1842,7 +2080,16 @@ btnVolverIni.addEventListener("click",()=>{
   sala.classList.add("oculto");
   pInicio.classList.remove("oculto");
   tokens={}; misPersonajes=[]; personajeActivo=null; tokenSeleccionado=null;
-  mapaActivo=null; mapaImg=null;
+  capasMapa=[
+    {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
+    {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
+    {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
+  ];
+  capaImgs[0]=null; capaImgs[1]=null; capaImgs[2]=null;
+  modoEditarMapa=false;
+  cerrarPanelCapas();
+  const btnModoMapa=$("btn-modo-mapa");
+  if(btnModoMapa) btnModoMapa.classList.remove("activo");
   tbRol.classList.add("oculto");
   // Nota: la sesión se mantiene para autologin (no la borramos aquí)
 });
@@ -1878,7 +2125,16 @@ document.addEventListener("keydown", e => {
 
   if (e.key !== "Escape") return;
 
-  // 1. Menú contextual
+  // 1. Modo edición de mapa
+  if (modoEditarMapa) {
+    modoEditarMapa = false;
+    const btnModoMapa = $("btn-modo-mapa");
+    if (btnModoMapa) btnModoMapa.classList.remove("activo");
+    cerrarPanelCapas();
+    dibujar();
+    return;
+  }
+  // 2. Menú contextual
   if (!ctxMenu.classList.contains("oculto")) {
     ctxMenu.classList.add("oculto");
     $("ctx-submenu").classList.add("oculto");
@@ -1931,17 +2187,126 @@ function habilitarDragPersonajes() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// MAPA DE FONDO
+// CAPAS DE IMAGEN DE MAPA
 // ─────────────────────────────────────────────────────────────────
-function cargarImagenMapa(archivo){
-  if(!archivo){ mapaImg=null; dibujar(); return; }
-  const ruta=path.join(MAPS_DIR, archivo);
+function cargarCapaMapa(i){
+  const capa = capasMapa[i];
+  if(!capa || !capa.archivo){ capaImgs[i]=null; dibujar(); return; }
+  const ruta=path.join(MAPS_DIR, capa.archivo);
   if(fs.existsSync(ruta)){
     const img=new Image();
-    img.onload=()=>{ mapaImg=img; dibujar(); };
-    img.onerror=()=>{ mapaImg=null; dibujar(); };
+    img.onload=()=>{ capaImgs[i]=img; dibujar(); };
+    img.onerror=()=>{ capaImgs[i]=null; dibujar(); };
     img.src=ruta;
   } else {
-    mapaImg=null; dibujar();
+    capaImgs[i]=null; dibujar();
   }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MODO EDICIÓN DE MAPA — panel flotante
+// ─────────────────────────────────────────────────────────────────
+function _listaArchivosMapas(){
+  try {
+    if(fs.existsSync(MAPS_DIR)){
+      return fs.readdirSync(MAPS_DIR).filter(f=>/\.(png|jpg|jpeg|webp)$/i.test(f));
+    }
+  } catch(e){}
+  return [];
+}
+
+function abrirPanelCapas(){
+  const PANEL_ID="panel-capas-editor";
+  if(document.getElementById(PANEL_ID)) return;
+  const archivos=_listaArchivosMapas();
+
+  const panel=document.createElement("div");
+  panel.id=PANEL_ID;
+  panel.className="panel-capas-editor";
+  document.getElementById("col-mapa").appendChild(panel);
+
+  _renderPanelCapas(panel, archivos);
+}
+
+function cerrarPanelCapas(){
+  const panel=document.getElementById("panel-capas-editor");
+  if(panel) panel.remove();
+}
+
+function actualizarPanelCapas(){
+  const panel=document.getElementById("panel-capas-editor");
+  if(!panel) return;
+  const archivos=_listaArchivosMapas();
+  _renderPanelCapas(panel, archivos);
+}
+
+function _renderPanelCapas(panel, archivos){
+  panel.innerHTML=`<div class="panel-capas-titulo">🗺️ Editar capas de mapa</div>`;
+
+  capasMapa.forEach((capa, i) => {
+    const row=document.createElement("div"); row.className="capa-row";
+
+    const header=document.createElement("div"); header.className="capa-row-header";
+    const label=document.createElement("span"); label.className="capa-label";
+    label.textContent=`Capa ${i+1}`;
+    const visBtn=document.createElement("button"); visBtn.className="capa-vis-btn";
+    visBtn.textContent=capa.visible?"👁":"🚫";
+    visBtn.title=capa.visible?"Ocultar capa":"Mostrar capa";
+    visBtn.addEventListener("click", e=>{
+      e.stopPropagation();
+      capasMapa[i].visible=!capasMapa[i].visible;
+      enviar({tipo:"gm_set_capa_mapa",capa:i,
+              archivo:capa.archivo,x:capa.x,y:capa.y,
+              scaleX:capa.scaleX,scaleY:capa.scaleY,visible:capasMapa[i].visible});
+      dibujar();
+      const archivosNow=_listaArchivosMapas();
+      _renderPanelCapas(panel, archivosNow);
+    });
+    header.appendChild(label); header.appendChild(visBtn);
+    row.appendChild(header);
+
+    const archivoEl=document.createElement("div"); archivoEl.className="capa-archivo";
+    archivoEl.textContent=capa.archivo||"(sin imagen)";
+    row.appendChild(archivoEl);
+
+    if(archivos.length){
+      const sel=document.createElement("select"); sel.className="capa-select";
+      const optNone=document.createElement("option"); optNone.value=""; optNone.textContent="— Sin imagen —";
+      sel.appendChild(optNone);
+      archivos.forEach(f=>{
+        const opt=document.createElement("option"); opt.value=f; opt.textContent=f;
+        if(f===capa.archivo) opt.selected=true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener("change", e=>{
+        e.stopPropagation();
+        const archivo=sel.value||null;
+        capasMapa[i].archivo=archivo;
+        enviar({tipo:"gm_set_capa_mapa",capa:i,
+                archivo:archivo,x:capasMapa[i].x,y:capasMapa[i].y,
+                scaleX:capasMapa[i].scaleX,scaleY:capasMapa[i].scaleY,
+                visible:capasMapa[i].visible});
+        cargarCapaMapa(i);
+      });
+      row.appendChild(sel);
+    }
+
+    const btnQuitar=document.createElement("button"); btnQuitar.className="capa-btn-quitar";
+    btnQuitar.textContent="✕ Quitar imagen";
+    btnQuitar.addEventListener("click", e=>{
+      e.stopPropagation();
+      capasMapa[i].archivo=null;
+      capaImgs[i]=null;
+      enviar({tipo:"gm_set_capa_mapa",capa:i,
+              archivo:null,x:capasMapa[i].x,y:capasMapa[i].y,
+              scaleX:capasMapa[i].scaleX,scaleY:capasMapa[i].scaleY,
+              visible:capasMapa[i].visible});
+      dibujar();
+      const archivosNow=_listaArchivosMapas();
+      _renderPanelCapas(panel, archivosNow);
+    });
+    row.appendChild(btnQuitar);
+
+    panel.appendChild(row);
+  });
 }

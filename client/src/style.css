@@ -189,6 +189,37 @@ textarea:focus{border-color:var(--accent)}
 #col-mapa{flex:1;position:relative;overflow:hidden;background:var(--bg0)}
 #tablero{display:block;width:100%;height:100%;cursor:crosshair}
 
+/* Botón de modo edición de mapa */
+.btn-modo-mapa{
+  position:absolute;top:10px;left:10px;z-index:10;
+  background:rgba(13,13,26,.75);border:2px solid var(--border2);
+  border-radius:10px;color:var(--text);cursor:pointer;
+  font-size:20px;padding:6px 10px;line-height:1;
+  transition:background .15s,border-color .15s;
+  backdrop-filter:blur(4px);
+}
+.btn-modo-mapa:hover{background:rgba(30,32,64,.9);border-color:var(--border)}
+.btn-modo-mapa.activo{background:rgba(240,192,64,.2);border-color:var(--gold);color:var(--gold)}
+
+/* Panel flotante de capas de mapa */
+.panel-capas-editor{
+  position:absolute;top:54px;left:10px;z-index:11;
+  background:var(--bg1);border:1px solid var(--border);border-radius:12px;
+  width:300px;padding:12px;
+  box-shadow:0 4px 24px rgba(0,0,0,.5);
+}
+.panel-capas-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+.capa-row{display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:6px}
+.capa-row-header{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.capa-label{font-size:12px;font-weight:600;flex:1}
+.capa-vis-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:2px;opacity:.6;transition:opacity .15s}
+.capa-vis-btn:hover{opacity:1}
+.capa-archivo{font-size:11px;color:var(--muted);margin-bottom:4px;word-break:break-all}
+.capa-select{width:100%;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:12px;outline:none;margin-bottom:4px}
+.capa-select:focus{border-color:var(--accent)}
+.capa-btn-quitar{padding:3px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--muted);cursor:pointer;font-size:11px}
+.capa-btn-quitar:hover{color:var(--text)}
+
 /* ── Columna Chat ──────────────────────────────────────────── */
 #col-chat{width:var(--chat-w);flex-shrink:0;background:var(--bg1);border-left:1px solid var(--border);display:flex;flex-direction:column}
 #chat-msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}

@@ -82,6 +82,12 @@ async def broadcast(msg, excluir=None):
 
 # ── Paquete de estado completo para un cliente ───────────────────
 def paquete_estado(nombre: str, es_gm: bool) -> dict:
+    campana_local = campaigns["campanas"].get("local", {})
+    capas_mapa = campana_local.get("capas_mapa", [
+        {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+        {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+        {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+    ])
     paquete = {
         "tipo":                 "estado_completo",
         "tokens":               tokens,
@@ -96,7 +102,7 @@ def paquete_estado(nombre: str, es_gm: bool) -> dict:
         "combate_activo":       combate["activo"],
         "personajes":           personajes.get(nombre, []),
         "campanas":             campaigns["campanas"],
-        "mapa_activo":          campaigns["campanas"].get("local", {}).get("mapa_activo"),
+        "capas_mapa":           capas_mapa,
         "habilidades_globales": habilidades,
     }
     if es_gm:
@@ -480,12 +486,37 @@ async def manejar(ws, msg: dict):
         await broadcast({"tipo":"plantilla_actualizada","plantilla":campaigns["plantilla"],
                          "plantilla_bloqueada":False})
 
-    # ─── GM: MAPA ────────────────────────────────────────────────
+    # ─── GM: MAPA (nuevo sistema de capas) ──────────────────────
+    elif tipo == "gm_set_capa_mapa" and es_gm:
+        num_capa = msg.get("capa")
+        if not isinstance(num_capa, int) or num_capa < 0 or num_capa > 2: return
+        campana = campaigns["campanas"].get("local", {})
+        if "capas_mapa" not in campana:
+            campana["capas_mapa"] = [
+                {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+                {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+                {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+            ]
+        capa = campana["capas_mapa"][num_capa]
+        for campo in ["archivo", "x", "y", "scaleX", "scaleY", "visible"]:
+            if campo in msg:
+                capa[campo] = msg[campo]
+        guardar_campaigns()
+        await broadcast({"tipo": "capas_mapa_actualizadas", "capas_mapa": campana["capas_mapa"]})
+
+    # ─── GM: MAPA (formato antiguo, compatibilidad) ──────────────
     elif tipo == "gm_set_mapa" and es_gm:
         archivo = msg.get("archivo")
-        campaigns["campanas"]["local"]["mapa_activo"] = archivo
+        campana = campaigns["campanas"].get("local", {})
+        if "capas_mapa" not in campana:
+            campana["capas_mapa"] = [
+                {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+                {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+                {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+            ]
+        campana["capas_mapa"][0]["archivo"] = archivo
         guardar_campaigns()
-        await broadcast({"tipo":"mapa_cambiado","archivo":archivo})
+        await broadcast({"tipo": "capas_mapa_actualizadas", "capas_mapa": campana["capas_mapa"]})
 
     # ─── GM: COMBATE ────────────────────────────────────────────
     elif tipo == "gm_iniciar_combate" and es_gm:
