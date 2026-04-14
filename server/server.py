@@ -20,6 +20,7 @@ PORT           = cfg["servidor"]["port"]
 GM_PASSWORD    = cfg["servidor"]["gm_password"]
 MAX_MENSAJES   = cfg["juego"]["max_mensajes"]
 COLORES        = cfg["juego"]["colores_default"]
+NUM_CAPAS      = 3  # número de capas de imagen del mapa
 
 # ── Estado en memoria (cargado al arrancar desde los YAML) ───────
 #
@@ -489,7 +490,7 @@ async def manejar(ws, msg: dict):
     # ─── GM: MAPA (nuevo sistema de capas) ──────────────────────
     elif tipo == "gm_set_capa_mapa" and es_gm:
         num_capa = msg.get("capa")
-        if not isinstance(num_capa, int) or num_capa < 0 or num_capa > 2: return
+        if not isinstance(num_capa, int) or num_capa < 0 or num_capa >= NUM_CAPAS: return
         campana = campaigns["campanas"].get("local", {})
         if "capas_mapa" not in campana:
             campana["capas_mapa"] = [

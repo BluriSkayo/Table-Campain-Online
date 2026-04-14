@@ -684,7 +684,7 @@ function dibujar() {
       if(!capa.visible || !img) return;
       const w = img.naturalWidth * capa.scaleX;
       const h = img.naturalHeight * capa.scaleY;
-      const hs = Math.max(8, 8 / camZoom); // handle size en world space
+      const hs = Math.max(HANDLE_SIZE_BASE, HANDLE_SIZE_BASE / camZoom); // handle size en world space
 
       // Borde de la capa
       ctx.strokeStyle = "rgba(240,192,64,0.6)";
@@ -723,6 +723,8 @@ let arrastrando=null, offsetDrag={x:0,y:0}, mousoDown=false, mouseMoved=false;
 let lastClickTime=0, lastClickTid=null;
 let panStart=null; // {mx, my, camX0, camY0} — para pan de cámara
 
+const HANDLE_SIZE_BASE = 10; // tamaño base del handle en world space (antes del zoom)
+
 // Helpers para modo edición de mapa
 function _worldXY(clientX, clientY) {
   const r=canvas.getBoundingClientRect();
@@ -730,7 +732,7 @@ function _worldXY(clientX, clientY) {
 }
 
 function _capaHandleBajo(wx, wy) {
-  const hs = Math.max(12, 12 / camZoom);
+  const hs = Math.max(HANDLE_SIZE_BASE, HANDLE_SIZE_BASE / camZoom);
   for(let i=capasMapa.length-1; i>=0; i--){
     const capa=capasMapa[i]; const img=capaImgs[i];
     if(!capa.visible||!img) continue;
