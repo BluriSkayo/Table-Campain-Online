@@ -254,10 +254,13 @@
         </div>
 
         <!-- Mapa de fondo -->
-        <div class="cmd-seccion-titulo" style="margin-top:12px">Mapa de fondo</div>
+        <div class="cmd-seccion-titulo" style="margin-top:12px">Capas de mapa</div>
+        <div class="cmd-vacio" style="text-align:left;font-style:normal;font-size:12px;padding:8px 0">
+          Usa el botón <strong>🗺️</strong> en la esquina del mapa para editar las capas de imagen.
+        </div>
         <div id="mapa-lista"></div>
-        <div id="mapa-vacio" class="cmd-vacio">No hay imágenes en resources/maps/</div>
-        <button class="cmd-btn" id="btn-quitar-mapa" style="background:var(--bg3);color:var(--muted)">✕ Sin mapa</button>
+        <div id="mapa-vacio" class="cmd-vacio oculto">No hay imágenes en resources/maps/</div>
+        <button class="cmd-btn" id="btn-quitar-mapa" style="display:none">✕ Sin mapa</button>
 
         <!-- Gestionar Habilidades -->
         <div class="cmd-seccion-titulo" style="margin-top:12px">Habilidades</div>
@@ -270,6 +273,8 @@
     <!-- ══ COLUMNA CENTRAL: Mapa y Tokens ══ -->
     <div id="col-mapa">
       <canvas id="tablero"></canvas>
+      <!-- Botón de edición de capas de mapa (solo GM) -->
+      <button id="btn-modo-mapa" class="btn-modo-mapa gm-only oculto" title="Editar capas de mapa">🗺️</button>
     </div>
 
     <!-- ══ COLUMNA DERECHA: Chat ══ -->

@@ -152,13 +152,32 @@ STATS_DEFAULT = [
     {"nombre": "Agilidad",      "tipo": "neutral",   "vs": None,             "dado": "d20"},
 ]
 
+def _capa_defecto() -> dict:
+    return {"archivo": None, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True}
+
+def _capas_defecto() -> list:
+    return [_capa_defecto(), _capa_defecto(), _capa_defecto()]
+
 def leer_campaigns() -> dict:
     datos = _leer("campaigns.yaml")
     datos.setdefault("campanas", {
-        "local": {"nombre": "local", "modo": "local", "mapa_activo": None, "jugadores": []}
+        "local": {"nombre": "local", "modo": "local", "capas_mapa": _capas_defecto(), "jugadores": []}
     })
     if "local" not in datos["campanas"]:
-        datos["campanas"]["local"] = {"nombre": "local", "modo": "local", "mapa_activo": None, "jugadores": []}
+        datos["campanas"]["local"] = {"nombre": "local", "modo": "local", "capas_mapa": _capas_defecto(), "jugadores": []}
+
+    # Migración: convertir mapa_activo (formato viejo) a capas_mapa (formato nuevo)
+    for camp in datos["campanas"].values():
+        if "mapa_activo" in camp and "capas_mapa" not in camp:
+            archivo_viejo = camp.pop("mapa_activo")
+            camp["capas_mapa"] = [
+                {"archivo": archivo_viejo, "x": 0, "y": 0, "scaleX": 1.0, "scaleY": 1.0, "visible": True},
+                _capa_defecto(),
+                _capa_defecto(),
+            ]
+        elif "capas_mapa" not in camp:
+            camp["capas_mapa"] = _capas_defecto()
+
     datos.setdefault("plantilla", copy.deepcopy(STATS_DEFAULT))
     datos.setdefault("plantilla_bloqueada", False)
     datos.setdefault("plantillas_guardadas", {})
