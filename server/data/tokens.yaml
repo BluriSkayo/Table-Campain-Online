@@ -13,9 +13,9 @@ tokens:
       nombre: Ataque
       stat_base: Fuerza
     - descripcion: Ataca directamente a la defensa mágica del objetivo
-      formula: aMagia - oDefensa Mágica
+      formula: '[aMagia] - [oDefensa Mágica]'
       nombre: Ataque de Test
-      stat_base: Fuerza
+      stat_base: Magia
     info_visible:
     - HP
     - nombre
@@ -31,8 +31,8 @@ tokens:
       MP_max: 100
       Magia: 10
     token_id: BluriSkayo_Testeo
-    x: 787
-    y: 1433
+    x: 1470
+    y: 1410
   BluriSkayo_Víctima de Golpes:
     clase: Personaje de Test
     color: '#3498db'
@@ -61,5 +61,5 @@ tokens:
       MP_max: 100
       Magia: 10
     token_id: BluriSkayo_Víctima de Golpes
-    x: 1070
-    y: 1295
+    x: 1350
+    y: 1230

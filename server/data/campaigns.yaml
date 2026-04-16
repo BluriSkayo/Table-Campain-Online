@@ -1,18 +1,18 @@
 campanas:
   local:
     capas_mapa:
-    - archivo: test map.png
+    - archivo: escuela2.png
       scaleX: 2.007121674355971
       scaleY: 2.1999574851138206
       visible: true
-      x: -18.327475534457562
-      y: 70.21367713705155
+      x: -1169.7614917934652
+      y: -568.8804674529481
     - archivo: null
-      scaleX: 1.0
-      scaleY: 1.0
+      scaleX: 4.26050088775297
+      scaleY: 2.9430629059652285
       visible: true
-      x: 0
-      y: 0
+      x: 109.1616944241079
+      y: 367.19612007635715
     - archivo: null
       scaleX: 1.0
       scaleY: 1.0
@@ -69,6 +69,27 @@ mensajes:
 - autor: Combate
   texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
     Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: BluriSkayo
+  texto: /gm gm1234
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [[aMagia] -
+    [oDefensa Mágica]] → aMagia=10 | oDefensa Mágica=10 | ERROR:Carácter inválido:
+    [10] - [10] = 0'
 plantilla:
 - dado: d20
   nombre: Magia

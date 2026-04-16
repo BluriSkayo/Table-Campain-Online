@@ -9,9 +9,9 @@ personajes:
       nombre: Ataque
       stat_base: Fuerza
     - descripcion: Ataca directamente a la defensa mágica del objetivo
-      formula: aMagia - oDefensa Mágica
+      formula: '[aMagia] - [oDefensa Mágica]'
       nombre: Ataque de Test
-      stat_base: Fuerza
+      stat_base: Magia
     info_visible:
     - HP
     - nombre

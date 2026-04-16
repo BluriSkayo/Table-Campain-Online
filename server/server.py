@@ -143,33 +143,39 @@ def evaluar_formula(formula: str, stats_at: dict, stats_def: dict = None) -> tup
         detalles.append(f"{x}d{y}={r}")
         return str(r)
 
+    # 1. Reemplazamos los dados (ej: 1d20)
     expr = re.sub(r'(\d*)d(\d+)', reemplazar_dado, expr, flags=re.IGNORECASE)
 
+    # 2. Stats del ATACANTE con [aStat]
     for stat, val in sorted(stats_at.items(), key=lambda x: -len(x[0])):
-        p = re.compile(r'(?<![a-zA-Z0-9_])a' + re.escape(stat), re.IGNORECASE)
+        p = re.compile(r'\[a' + re.escape(stat) + r'\]', re.IGNORECASE)
         if p.search(expr):
             expr = p.sub(str(int(val)), expr)
-            detalles.append(f"a{stat}={val}")
+            detalles.append(f"[a{stat}]={val}")
 
+    # 3. Stats del OBJETIVO/DEFENSOR con [oStat]
     for stat, val in sorted(stats_def.items(), key=lambda x: -len(x[0])):
-        p = re.compile(r'(?<![a-zA-Z0-9_])o' + re.escape(stat), re.IGNORECASE)
+        p = re.compile(r'\[o' + re.escape(stat) + r'\]', re.IGNORECASE)
         if p.search(expr):
             expr = p.sub(str(int(val)), expr)
-            detalles.append(f"o{stat}={val}")
+            detalles.append(f"[o{stat}]={val}")
 
+    # 4. Stats del ATACANTE sin la 'a' (ej: [Fuerza]) por comodidad
     for stat, val in sorted(stats_at.items(), key=lambda x: -len(x[0])):
-        p = re.compile(r'(?<![a-zA-Z0-9_])' + re.escape(stat) + r'(?![a-zA-Z0-9_])', re.IGNORECASE)
+        p = re.compile(r'\[' + re.escape(stat) + r'\]', re.IGNORECASE)
         if p.search(expr):
             expr = p.sub(str(int(val)), expr)
-            detalles.append(f"{stat}={val}")
+            detalles.append(f"[{stat}]={val}")
 
     try:
+        # Validar que solo queden números y operadores. 
+        # Si quedó algún corchete sin reemplazar (ej: [oStatFalso]), dará error para evitar crasheos.
         if re.search(r'[^0-9+\-*/().\s]', expr):
-            raise ValueError(f"Carácter inválido: {expr}")
+            raise ValueError(f"Carácter inválido o stat mal escrito: {expr}")
         resultado = int(eval(expr, {"__builtins__": {}}, {}))
     except Exception as e:
         resultado = 0
-        detalles.append(f"ERROR:{e}")
+        detalles.append(f"ERROR: Verifica los corchetes o nombres de stats")
 
     return resultado, f"[{formula}] → {' | '.join(detalles)} = {resultado}"
 
@@ -317,7 +323,7 @@ async def manejar(ws, msg: dict):
             if gi.get("es_gm"):
                 await enviar(ws_gm,{"tipo":"todos_personajes_actualizados","todos_personajes":personajes})
 
-    # ─── EDITAR PERSONAJE ────────────────────────────────────────
+# ─── EDITAR PERSONAJE ────────────────────────────────────────
     elif tipo == "editar_personaje":
         if not nombre: return
         nom_p = msg.get("nombre_personaje")
@@ -334,11 +340,8 @@ async def manejar(ws, msg: dict):
             if campo in msg: p[campo] = msg[campo]
         if msg.get("stats"):
             p["stats"].update(msg["stats"])
-        if msg.get("habilidades") is not None:
-            p["habilidades"] = msg["habilidades"]
-            if not any(h["nombre"]=="Ataque" for h in p["habilidades"]):
-                p["habilidades"].insert(0, copy.deepcopy(storage.HABILIDAD_ATAQUE_BASE))
 
+        # SEGURIDAD: Ya no confiamos en las habilidades que envíe el cliente
         guardar_personajes(owner)
         await enviar(ws,{"tipo":"personaje_actualizado","personaje":p,"personajes":personajes.get(nombre,[])})
 
@@ -409,7 +412,7 @@ async def manejar(ws, msg: dict):
         guardar_tokens_y_combate()
         await broadcast({"tipo":"token_actualizado","token":t})
 
-    # ─── ATACAR ──────────────────────────────────────────────────
+# ─── ATACAR ──────────────────────────────────────────────────
     elif tipo == "atacar":
         tid_at = msg.get("token_atacante")
         tid_df = msg.get("token_defensor")
@@ -419,8 +422,14 @@ async def manejar(ws, msg: dict):
         ta = tokens[tid_at]; td = tokens[tid_df]
         if ta.get("owner") != nombre and not es_gm: return
 
-        hab = next((h for h in ta.get("habilidades",[]) if h["nombre"]==nom_hab),
-                   copy.deepcopy(storage.HABILIDAD_ATAQUE_BASE))
+        # EL SERVIDOR ES LA AUTORIDAD: Ignoramos la fórmula del cliente
+        if nom_hab == "Ataque":
+            hab = copy.deepcopy(storage.HABILIDAD_ATAQUE_BASE)
+        else:
+            hab = next((h for h in habilidades if h["nombre"] == nom_hab), None)
+            if not hab:
+                hab = copy.deepcopy(storage.HABILIDAD_ATAQUE_BASE)
+
         daño, detalle = evaluar_formula(hab.get("formula","40"), ta.get("stats",{}), td.get("stats",{}))
         daño = max(0, daño)
         td["stats"]["HP"] = max(0, td["stats"].get("HP",0) - daño)

@@ -525,7 +525,7 @@ function procesar(msg) {
 // ─────────────────────────────────────────────────────────────────
 // CANVAS
 // ─────────────────────────────────────────────────────────────────
-const RADIO = 26, GRID = 44;
+const RADIO = 30, GRID = 60;
 const tokenImgs = {};
 
 function cargarImagenToken(tokenId, token) {
@@ -824,6 +824,10 @@ function onDown(e){
       const snap = snapGrid(tokens[tid].x, tokens[tid].y);
       rutaActiva = { tidOrigen: tid, puntos: [snap, snap], midiendo: true };
       canvas.style.cursor = "crosshair";
+    } else {
+      // Si hace clic en un espacio vacío, inicia el movimiento de cámara
+      panStart = {mx: e.clientX, my: e.clientY, camX0: camX, camY0: camY};
+      canvas.style.cursor = "grab";
     }
     return;
   }
@@ -1030,28 +1034,30 @@ function onContextMenu(e){
 
   if(!tid){
     // Área vacía — "Desplegar token" con submenú (subitems evaluados en hover para usar datos actualizados)
-    const getSubitems = () => {
+  const getSubitems = () => {
       const personajesDisponibles = esGM
         ? Object.values(todosPersonajesGM).flat()
         : misPersonajes;
       return personajesDisponibles.map(p=>({
         label: p.nombre,
         fn: ()=>{
+          const snapped = snapGrid(cx, cy);
           enviar({tipo:"desplegar_token",nombre_personaje:p.nombre,
-                  x:Math.round(cx),y:Math.round(cy)});
+                  x:snapped.x, y:snapped.y});
         }
       }));
     };
     agregarCtxItemConSubmenu("📌 Desplegar token", getSubitems, e);
 
     // "Mover aquí" si hay token seleccionado del jugador
-    if(tokenSeleccionado && tokens[tokenSeleccionado]){
+  if(tokenSeleccionado && tokens[tokenSeleccionado]){
       const tsel=tokens[tokenSeleccionado];
       if(tsel.owner===miNombre || esGM){
         agregarCtxItem("🚶 Mover aquí",()=>{
-          const nx=Math.round(cx), ny=Math.round(cy);
-          tokens[tokenSeleccionado].x=nx; tokens[tokenSeleccionado].y=ny;
-          enviar({tipo:"mover_token",token_id:tokenSeleccionado,x:nx,y:ny});
+          const snapped = snapGrid(cx, cy);
+          tokens[tokenSeleccionado].x = snapped.x; 
+          tokens[tokenSeleccionado].y = snapped.y;
+          enviar({tipo:"mover_token",token_id:tokenSeleccionado,x:snapped.x,y:snapped.y});
           dibujar();
         });
       }
@@ -1103,8 +1109,8 @@ function onContextMenu(e){
 // ── Snap a cuadrícula ─────────────────────────────────────────────
 function snapGrid(x, y) {
   return {
-    x: Math.round(x / GRID) * GRID,
-    y: Math.round(y / GRID) * GRID,
+    x: Math.floor(x / GRID) * GRID + (GRID / 2),
+    y: Math.floor(y / GRID) * GRID + (GRID / 2),
   };
 }
 
