@@ -61,6 +61,14 @@ mensajes:
   texto: '⚔️ Testeo usó Ataque en Allycat: 40 daño | [40] →  = 40 ☠️ Allycat derrotado!'
 - autor: Combate
   texto: '⚔️ Testeo usó Ataque en Pobre Victima: 40 daño | [40] →  = 40'
+- autor: BluriSkayo
+  texto: /gm gm1234
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
+    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
 plantilla:
 - dado: d20
   nombre: Magia

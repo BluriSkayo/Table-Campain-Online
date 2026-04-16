@@ -1,4 +1,4 @@
-ultima_sync: '2026-04-14T17:36:37.703Z'
+ultima_sync: '2026-04-16T14:06:35.678Z'
 personajes:
   - backstory: ''
     clase: Personaje de Test
@@ -25,7 +25,7 @@ personajes:
       HP_max: 100
       MP: 100
       MP_max: 100
-      Magia: 10
+      Magia: 20
   - backstory: ''
     clase: Personaje de Test
     color: '#3498db'

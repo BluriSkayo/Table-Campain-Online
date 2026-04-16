@@ -32,6 +32,11 @@ let fichaZIndex = 1000;       // z-index base para fichas flotantes
 const MAP_W = 4000, MAP_H = 4000;
 let camX = 0, camY = 0, camZoom = 1.0;
 
+// ── Modo medición de movimiento ───────────────────────────────────
+let modoMovimiento = false;   // toggle activado por el usuario
+let rutaActiva = null;        // { tidOrigen, puntos:[{x,y}], midiendo:bool }
+// puntos[0] = origen del token, puntos[N] = cursor actual
+
 // ── Capas de imagen de mapa (3 capas) ────────────────────────────
 let capasMapa = [
   {archivo:null,x:0,y:0,scaleX:1,scaleY:1,visible:true},
@@ -398,6 +403,18 @@ function procesar(msg) {
       }
       break;
 
+    case "ruta_movimiento":
+      // Ruta de movimiento de otro jugador
+      if(msg.nombre !== miNombre){
+        if(msg.puntos){
+          rutasRemotas[msg.nombre] = msg.puntos;
+        } else {
+          delete rutasRemotas[msg.nombre];
+        }
+        dibujar();
+      }
+      break;
+
     case "token_movido":
       if(tokens[msg.token_id]){tokens[msg.token_id].x=msg.x;tokens[msg.token_id].y=msg.y;}
       dibujar(); break;
@@ -570,6 +587,20 @@ function iniciarCanvas() {
     });
   }
 
+  // Botón modo medición de movimiento
+  const btnModoMov = $("btn-modo-movimiento");
+  if (btnModoMov) {
+    btnModoMov.addEventListener("click", e => {
+      e.stopPropagation();
+      modoMovimiento = !modoMovimiento;
+      btnModoMov.classList.toggle("activo", modoMovimiento);
+      // Si se desactiva, cancelar ruta activa
+      if (!modoMovimiento) cancelarRuta();
+      canvas.style.cursor = modoMovimiento ? "crosshair" : "crosshair";
+      dibujar();
+    });
+  }
+
   // Drag & Drop — soltar personaje desde lista al canvas
   canvas.addEventListener("dragover", e => {
     if (dragPersonajeNombre) {
@@ -588,7 +619,8 @@ function iniciarCanvas() {
     const nombre = dragPersonajeNombre || e.dataTransfer.getData("text/plain");
     if (!nombre) return;
     const {x, y} = canvasXY(e);
-    enviar({tipo: "desplegar_token", nombre_personaje: nombre, x: Math.round(x), y: Math.round(y)});
+    const snapped = snapGrid(x, y);
+    enviar({tipo: "desplegar_token", nombre_personaje: nombre, x: snapped.x, y: snapped.y});
     dragPersonajeNombre = null;
   });
 }
@@ -708,6 +740,9 @@ function dibujar() {
     });
   }
 
+  // Rutas de movimiento (encima de tokens, dentro de la cámara)
+  dibujarRutas();
+
   ctx.restore();
 
   // Pre-cargar imágenes faltantes
@@ -780,6 +815,19 @@ function onDown(e){
   if(e.button!==0) return;
   mouseMoved=false; mousoDown=true;
 
+  // Modo medición de movimiento
+  if(modoMovimiento){
+    const {x,y} = canvasXY(e);
+    const tid = tokenBajo(e.clientX, e.clientY);
+    if(tid && (tokens[tid].owner === miNombre || esGM)){
+      // Iniciar ruta desde el token
+      const snap = snapGrid(tokens[tid].x, tokens[tid].y);
+      rutaActiva = { tidOrigen: tid, puntos: [snap, snap], midiendo: true };
+      canvas.style.cursor = "crosshair";
+    }
+    return;
+  }
+
   // Modo edición de mapa: drag de capa o handle
   if(modoEditarMapa && esGM){
     const {wx,wy}=_worldXY(e.clientX,e.clientY);
@@ -823,6 +871,18 @@ function onDown(e){
   }
 }
 function onMove(e){
+  // Modo medición: actualizar último punto de la ruta con snap a grid
+  if(modoMovimiento && rutaActiva && rutaActiva.midiendo){
+    const {x,y} = canvasXY(e);
+    rutaActiva.puntos[rutaActiva.puntos.length - 1] = snapGrid(x, y);
+    dibujar();
+    // Broadcast de la ruta a todos los conectados
+    enviar({ tipo: "ruta_movimiento",
+             nombre: miNombre,
+             puntos: rutaActiva.puntos });
+    return;
+  }
+
   if(mapaEditArrastrando && modoEditarMapa){
     mouseMoved=true;
     const {wx,wy}=_worldXY(e.clientX,e.clientY);
@@ -869,6 +929,12 @@ function onMove(e){
   dibujar();
 }
 function onUp(e){
+  // Modo medición: soltar click izquierdo → cancelar ruta
+  if(modoMovimiento && e.button === 0){
+    if(rutaActiva) cancelarRuta();
+    return;
+  }
+
   if(e.button!==0){ arrastrando=null; panStart=null; mapaEditArrastrando=null; return; }
 
   if(mapaEditArrastrando){
@@ -899,8 +965,13 @@ function onUp(e){
   if(arrastrando){
     if(mouseMoved){
       const {x,y}=canvasXY(e);
+      // Snap a cuadrícula: la posición final siempre cae en un centro de celda
+      const raw = {x: x-offsetDrag.x, y: y-offsetDrag.y};
+      const snapped = snapGrid(raw.x, raw.y);
+      tokens[arrastrando].x = snapped.x;
+      tokens[arrastrando].y = snapped.y;
       enviar({tipo:"mover_token",token_id:arrastrando,
-              x:Math.round(x-offsetDrag.x),y:Math.round(y-offsetDrag.y)});
+              x:snapped.x,y:snapped.y});
     } else {
       seleccionarToken(arrastrando);
     }
@@ -938,6 +1009,18 @@ function onContextMenu(e){
   e.preventDefault();
   // En modo edición de mapa, no mostrar menú contextual de tokens
   if(modoEditarMapa) return;
+
+  // En modo movimiento: click derecho añade vértice a la ruta si está midiendo
+  if(modoMovimiento){
+    if(rutaActiva && rutaActiva.midiendo){
+      // Insertar un vértice fijo en la posición actual (penúltima posición)
+      // El último punto siempre sigue al cursor; insertamos uno nuevo antes de él
+      const ultimo = rutaActiva.puntos[rutaActiva.puntos.length - 1];
+      rutaActiva.puntos.splice(rutaActiva.puntos.length - 1, 0, { ...ultimo });
+      dibujar();
+    }
+    return; // nunca mostrar menú contextual mientras modo movimiento activo
+  }
   const {x: cx, y: cy} = canvasXY(e);
   const tid=tokenBajo(e.clientX,e.clientY);
   const submenuEl = $("ctx-submenu");
@@ -1015,6 +1098,103 @@ function onContextMenu(e){
   ctxMenu.style.top =`${Math.min(e.clientY, window.innerHeight-200)}px`;
   ctxMenu.classList.remove("oculto");
   e.stopPropagation();
+}
+
+// ── Snap a cuadrícula ─────────────────────────────────────────────
+function snapGrid(x, y) {
+  return {
+    x: Math.round(x / GRID) * GRID,
+    y: Math.round(y / GRID) * GRID,
+  };
+}
+
+// ── Cancelar ruta activa y limpiar ────────────────────────────────
+function cancelarRuta() {
+  if(!rutaActiva) return;
+  rutaActiva = null;
+  // Avisar al servidor para que limpie la ruta de este jugador
+  enviar({ tipo: "ruta_movimiento", nombre: miNombre, puntos: null });
+  dibujar();
+}
+
+// ── Dibujar ruta de movimiento en el canvas ───────────────────────
+// rutasRemotas: { nombre → puntos[] } recibidas de otros jugadores
+let rutasRemotas = {};
+
+function dibujarRutas() {
+  if(!ctx) return;
+
+  // Ruta propia
+  const todasRutas = {};
+  if(rutaActiva && rutaActiva.puntos.length >= 2){
+    todasRutas[miNombre] = { puntos: rutaActiva.puntos, color: "#f0c040" };
+  }
+  // Rutas remotas
+  Object.entries(rutasRemotas).forEach(([nom, pts]) => {
+    if(pts && pts.length >= 2){
+      const color = Object.values(tokens).find(t=>t.owner===nom)?.color || "#ffffff";
+      todasRutas[nom] = { puntos: pts, color };
+    }
+  });
+
+  Object.entries(todasRutas).forEach(([nom, ruta]) => {
+    const { puntos, color } = ruta;
+
+    // Línea de la ruta
+    ctx.beginPath();
+    ctx.moveTo(puntos[0].x, puntos[0].y);
+    for(let i=1; i<puntos.length; i++) ctx.lineTo(puntos[i].x, puntos[i].y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 / camZoom;
+    ctx.setLineDash([6/camZoom, 3/camZoom]);
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // Puntos intermedios (vértices)
+    for(let i=1; i<puntos.length-1; i++){
+      ctx.beginPath();
+      ctx.arc(puntos[i].x, puntos[i].y, 4/camZoom, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    // Calcular distancia total en cuadros
+    let distPx = 0;
+    for(let i=1; i<puntos.length; i++){
+      distPx += Math.hypot(puntos[i].x-puntos[i-1].x, puntos[i].y-puntos[i-1].y);
+    }
+    const cuadros = Math.round(distPx / GRID);
+    const ultimo = puntos[puntos.length-1];
+
+    // Etiqueta de distancia
+    const label = `${cuadros} cuadro${cuadros!==1?"s":""}`;
+    const fs = Math.max(11, 13/camZoom);
+    ctx.font = `bold ${fs}px Segoe UI`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    const pad = 4/camZoom;
+    const tw = ctx.measureText(label).width;
+
+    // Fondo de la etiqueta
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.beginPath();
+    ctx.roundRect(ultimo.x - tw/2 - pad, ultimo.y - fs - pad*2,
+                  tw + pad*2, fs + pad*2, 4/camZoom);
+    ctx.fill();
+
+    // Texto
+    ctx.fillStyle = color;
+    ctx.fillText(label, ultimo.x, ultimo.y - pad);
+
+    // Nombre del jugador (solo si es ruta remota)
+    if(nom !== miNombre){
+      ctx.font = `${Math.max(9, 11/camZoom)}px Segoe UI`;
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.fillText(nom, ultimo.x, ultimo.y - fs - pad*2 - 2/camZoom);
+    }
+  });
 }
 
 function retirarTokenPropio(tid) {

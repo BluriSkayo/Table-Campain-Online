@@ -32,3 +32,12 @@ __pycache__/
 
 # Environment
 .env
+Table Campain.zip
+resources/maps/saladigital.png
+resources/maps/escuela2.png
+client/data/characters.yaml
+server/data/campaigns.yaml
+server/data/characters.yaml
+server/data/tokens.yaml
+Table.zip
+TableCO.zip

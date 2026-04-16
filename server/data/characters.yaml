@@ -25,7 +25,7 @@ personajes:
       HP_max: 100
       MP: 100
       MP_max: 100
-      Magia: 10
+      Magia: 20
   - backstory: ''
     clase: Personaje de Test
     color: '#3498db'

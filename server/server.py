@@ -270,6 +270,16 @@ async def manejar(ws, msg: dict):
         guardar_tokens_y_combate()
         await broadcast({"tipo":"token_movido","token_id":tid,"x":msg["x"],"y":msg["y"]})
 
+    # ─── RUTA DE MOVIMIENTO (medición visual, no mueve el token) ────
+    elif tipo == "ruta_movimiento":
+        # Retransmitir la ruta a todos los demás clientes para visualización
+        # No se guarda en disco — es solo visual y temporal
+        await broadcast({
+            "tipo":   "ruta_movimiento",
+            "nombre": nombre,
+            "puntos": msg.get("puntos"),  # None = cancelar ruta
+        }, excluir=ws)
+
     # ─── RETIRAR TOKEN (dueño retira su propio token del mapa) ─────
     elif tipo == "retirar_token":
         tid = msg.get("token_id")

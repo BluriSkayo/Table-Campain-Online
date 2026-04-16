@@ -273,8 +273,11 @@
     <!-- ══ COLUMNA CENTRAL: Mapa y Tokens ══ -->
     <div id="col-mapa">
       <canvas id="tablero"></canvas>
-      <!-- Botón de edición de capas de mapa (solo GM) -->
-      <button id="btn-modo-mapa" class="btn-modo-mapa gm-only oculto" title="Editar capas de mapa">🗺️</button>
+      <!-- Botones flotantes sobre el mapa -->
+      <div id="mapa-botones">
+        <button id="btn-modo-mapa" class="btn-mapa-flotante gm-only oculto" title="Editar capas de mapa">🗺️</button>
+        <button id="btn-modo-movimiento" class="btn-mapa-flotante" title="Medir movimiento">📏</button>
+      </div>
     </div>
 
     <!-- ══ COLUMNA DERECHA: Chat ══ -->

@@ -31,5 +31,35 @@ tokens:
       MP_max: 100
       Magia: 10
     token_id: BluriSkayo_Testeo
-    x: 682
-    y: 1060
+    x: 787
+    y: 1433
+  BluriSkayo_Víctima de Golpes:
+    clase: Personaje de Test
+    color: '#3498db'
+    es_enemigo: false
+    habilidades:
+    - descripcion: 'Ataque básico (daño fijo: 40)'
+      formula: '40'
+      nombre: Ataque
+      stat_base: Fuerza
+    info_visible:
+    - HP
+    - nombre
+    - clase
+    objetos:
+    - descripcion: Restaura 40 PS
+      efecto: heal_hp
+      nombre: Poción
+      valor: 40
+    owner: BluriSkayo
+    personaje: Víctima de Golpes
+    stats:
+      Defensa Mágica: 10
+      HP: 100
+      HP_max: 100
+      MP: 100
+      MP_max: 100
+      Magia: 10
+    token_id: BluriSkayo_Víctima de Golpes
+    x: 1070
+    y: 1295

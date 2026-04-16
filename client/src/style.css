@@ -380,3 +380,43 @@ textarea:focus{border-color:var(--accent)}
 .ghf-hab-nombre{font-weight:600;font-size:13px}
 .ghf-hab-detalle{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .ghf-hab-acciones{display:flex;gap:4px;flex-shrink:0}
+
+/* ── Botones flotantes sobre el mapa ──────────────────────────── */
+#mapa-botones {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.btn-mapa-flotante {
+  width: 36px;
+  height: 36px;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, border-color .15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+
+.btn-mapa-flotante:hover {
+  background: var(--bg3);
+  border-color: var(--muted);
+}
+
+.btn-mapa-flotante.activo {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.btn-mapa-flotante.activo:hover {
+  background: #2471a3;
+}
