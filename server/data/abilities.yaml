@@ -4,6 +4,6 @@ habilidades:
   nombre: Ataque
   stat_base: Fuerza
 - descripcion: Ataca directamente a la defensa mágica del objetivo
-  formula: '[aMagia] - [oDefensa Mágica]'
+  formula: '[a.Magia] - [o.Defensa Mágica]'
   nombre: Ataque de Test
   stat_base: Magia

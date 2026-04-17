@@ -13,7 +13,7 @@ tokens:
       nombre: Ataque
       stat_base: Fuerza
     - descripcion: Ataca directamente a la defensa mágica del objetivo
-      formula: '[aMagia] - [oDefensa Mágica]'
+      formula: '[a.Magia] - [o.Defensa Mágica]'
       nombre: Ataque de Test
       stat_base: Magia
     info_visible:
@@ -29,10 +29,10 @@ tokens:
       HP_max: 100
       MP: 100
       MP_max: 100
-      Magia: 10
+      Magia: 20
     token_id: BluriSkayo_Testeo
-    x: 1470
-    y: 1410
+    x: 1830
+    y: 1230
   BluriSkayo_Víctima de Golpes:
     clase: Personaje de Test
     color: '#3498db'
@@ -46,20 +46,16 @@ tokens:
     - HP
     - nombre
     - clase
-    objetos:
-    - descripcion: Restaura 40 PS
-      efecto: heal_hp
-      nombre: Poción
-      valor: 40
+    objetos: []
     owner: BluriSkayo
     personaje: Víctima de Golpes
     stats:
       Defensa Mágica: 10
-      HP: 100
+      HP: 90
       HP_max: 100
       MP: 100
       MP_max: 100
       Magia: 10
     token_id: BluriSkayo_Víctima de Golpes
-    x: 1350
+    x: 2010
     y: 1230

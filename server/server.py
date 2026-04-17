@@ -131,53 +131,87 @@ def tirar_dado(x: int, y: int) -> int:
     return sum(random.randint(1, y) for _ in range(x))
 
 def evaluar_formula(formula: str, stats_at: dict, stats_def: dict = None) -> tuple:
+    """
+    Evalúa fórmulas como:
+      [[a.Magia] - [o.Defensa Mágica]]
+      [a.Fuerza] / 4 + 1d20
+      40
+      [Magia] + 10
+
+    Sintaxis de corchetes:
+      [a.Stat]  → stat del atacante
+      [o.Stat]  → stat del defensor
+      [Stat]    → stat del atacante (forma abreviada)
+      Los corchetes externos [[...]] se convierten en paréntesis.
+    """
     if stats_def is None:
         stats_def = {}
     expr = formula.strip()
     detalles = []
 
+    # Función auxiliar: busca un stat ignorando mayúsculas y espacios
+    def obtener_stat(diccionario, nombre_buscado):
+        nombre_buscado = nombre_buscado.strip().lower()
+        for k, v in diccionario.items():
+            if k.strip().lower() == nombre_buscado:
+                return int(v)
+        return 0
+
+    # 1. Reemplazar dados: 1d20, 2d6, d8, etc.
     def reemplazar_dado(m):
         x = int(m.group(1)) if m.group(1) else 1
         y = int(m.group(2))
         r = tirar_dado(x, y)
         detalles.append(f"{x}d{y}={r}")
         return str(r)
-
-    # 1. Reemplazamos los dados (ej: 1d20)
     expr = re.sub(r'(\d*)d(\d+)', reemplazar_dado, expr, flags=re.IGNORECASE)
 
-    # 2. Stats del ATACANTE con [aStat]
-    for stat, val in sorted(stats_at.items(), key=lambda x: -len(x[0])):
-        p = re.compile(r'\[a' + re.escape(stat) + r'\]', re.IGNORECASE)
-        if p.search(expr):
-            expr = p.sub(str(int(val)), expr)
-            detalles.append(f"[a{stat}]={val}")
+    # 2. Reemplazar [a.Stat] → valor del atacante
+    def repl_a(m):
+        val = obtener_stat(stats_at, m.group(1))
+        detalles.append(f"[a.{m.group(1).strip()}]={val}")
+        return str(val)
+    expr = re.sub(r'\[a\.(.*?)\]', repl_a, expr, flags=re.IGNORECASE)
 
-    # 3. Stats del OBJETIVO/DEFENSOR con [oStat]
-    for stat, val in sorted(stats_def.items(), key=lambda x: -len(x[0])):
-        p = re.compile(r'\[o' + re.escape(stat) + r'\]', re.IGNORECASE)
-        if p.search(expr):
-            expr = p.sub(str(int(val)), expr)
-            detalles.append(f"[o{stat}]={val}")
+    # 3. Reemplazar [o.Stat] → valor del defensor
+    def repl_o(m):
+        val = obtener_stat(stats_def, m.group(1))
+        detalles.append(f"[o.{m.group(1).strip()}]={val}")
+        return str(val)
+    expr = re.sub(r'\[o\.(.*?)\]', repl_o, expr, flags=re.IGNORECASE)
 
-    # 4. Stats del ATACANTE sin la 'a' (ej: [Fuerza]) por comodidad
-    for stat, val in sorted(stats_at.items(), key=lambda x: -len(x[0])):
-        p = re.compile(r'\[' + re.escape(stat) + r'\]', re.IGNORECASE)
-        if p.search(expr):
-            expr = p.sub(str(int(val)), expr)
-            detalles.append(f"[{stat}]={val}")
+    # 4. Convertir corchetes que ahora solo contienen aritmética pura en paréntesis.
+    #    Ejemplo: [15 - 5] → (15 - 5)   (resultado de [[a.X] - [o.Y]])
+    #    Se repite hasta que no queden corchetes con aritmética pura dentro.
+    for _ in range(10):  # máximo 10 niveles de anidamiento
+        nueva = re.sub(
+            r'\[([^\[\]]+)\]',
+            lambda m: f"({m.group(1)})"
+            if not re.search(r'[a-zA-Z]', m.group(1))
+            else m.group(0),
+            expr
+        )
+        if nueva == expr:
+            break
+        expr = nueva
 
+    # 5. Reemplazar [Stat] sin prefijo → valor del atacante
+    def repl_dir(m):
+        val = obtener_stat(stats_at, m.group(1))
+        detalles.append(f"[{m.group(1).strip()}]={val}")
+        return str(val)
+    expr = re.sub(r'\[([^\[\]]*?)\]', repl_dir, expr, flags=re.IGNORECASE)
+
+    # 6. Evaluar expresión aritmética resultante
     try:
-        # Validar que solo queden números y operadores. 
-        # Si quedó algún corchete sin reemplazar (ej: [oStatFalso]), dará error para evitar crasheos.
         if re.search(r'[^0-9+\-*/().\s]', expr):
-            raise ValueError(f"Carácter inválido o stat mal escrito: {expr}")
+            raise ValueError("Verifica los corchetes o nombres de stats")
         resultado = int(eval(expr, {"__builtins__": {}}, {}))
     except Exception as e:
         resultado = 0
-        detalles.append(f"ERROR: Verifica los corchetes o nombres de stats")
+        detalles.append(f"ERROR: {e}")
 
-    return resultado, f"[{formula}] → {' | '.join(detalles)} = {resultado}"
+    return resultado, f"{formula} → {' | '.join(detalles)} = {resultado}"
 
 def tirar_simple(dado_str: str) -> tuple:
     m = re.match(r'(\d*)d(\d+)', dado_str, re.IGNORECASE)

@@ -1,4 +1,4 @@
-ultima_sync: '2026-04-16T16:20:56.500Z'
+ultima_sync: '2026-04-17T01:12:21.428Z'
 personajes:
   - backstory: ''
     clase: Personaje de Test
@@ -9,9 +9,9 @@ personajes:
         nombre: Ataque
         stat_base: Fuerza
       - descripcion: Ataca directamente a la defensa mágica del objetivo
-        formula: aMagia - oDefensa Mágica
+        formula: '[a.Magia] - [o.Defensa Mágica]'
         nombre: Ataque de Test
-        stat_base: Fuerza
+        stat_base: Magia
     info_visible:
       - HP
       - nombre
@@ -39,11 +39,7 @@ personajes:
       - nombre
       - clase
     nombre: Víctima de Golpes
-    objetos:
-      - descripcion: Restaura 40 PS
-        efecto: heal_hp
-        nombre: Poción
-        valor: 40
+    objetos: []
     owner: BluriSkayo
     stats:
       Defensa Mágica: 10

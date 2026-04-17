@@ -9,7 +9,7 @@ personajes:
       nombre: Ataque
       stat_base: Fuerza
     - descripcion: Ataca directamente a la defensa mágica del objetivo
-      formula: '[aMagia] - [oDefensa Mágica]'
+      formula: '[a.Magia] - [o.Defensa Mágica]'
       nombre: Ataque de Test
       stat_base: Magia
     info_visible:
@@ -39,11 +39,7 @@ personajes:
     - nombre
     - clase
     nombre: Víctima de Golpes
-    objetos:
-    - descripcion: Restaura 40 PS
-      efecto: heal_hp
-      nombre: Poción
-      valor: 40
+    objetos: []
     owner: BluriSkayo
     stats:
       Defensa Mágica: 10
@@ -75,26 +71,3 @@ personajes:
       MP: 100
       MP_max: 100
       Magia: 1000
-  a:
-  - backstory: ''
-    clase: Aventurero
-    color: '#3498db'
-    habilidades:
-    - descripcion: 'Ataque básico (daño fijo: 40)'
-      formula: '40'
-      nombre: Ataque
-      stat_base: Fuerza
-    info_visible:
-    - HP
-    - nombre
-    - clase
-    nombre: Allycat
-    objetos: []
-    owner: a
-    stats:
-      Defensa Mágica: 10
-      HP: 100
-      HP_max: 100
-      MP: 100
-      MP_max: 100
-      Magia: 10
