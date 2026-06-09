@@ -59,7 +59,7 @@ textarea:focus{border-color:var(--accent)}
 .tab-btn.activo{background:var(--bg3);color:var(--text);font-weight:600}
 .tab-content{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:120px}
 
-.campana-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.campana-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;cursor:pointer}
 .campana-item:hover{border-color:var(--border2)}
 .campana-nombre{font-weight:600}
 .campana-modo{font-size:11px;color:var(--muted)}
@@ -93,16 +93,34 @@ textarea:focus{border-color:var(--accent)}
 
 /* ── Columna Comandos ──────────────────────────────────────── */
 #col-comandos{width:var(--cmd-w);flex-shrink:0;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.cmd-tabs{display:flex;flex-direction:column;gap:2px;padding:8px;border-bottom:1px solid var(--border);flex-shrink:0}
-.cmd-tab{padding:7px 10px;background:transparent;border:none;border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px;text-align:left;transition:background .15s,color .15s}
-.cmd-tab.activo,.cmd-tab:hover{background:var(--bg3);color:var(--text)}
-.cmd-tab.activo{font-weight:600}
-.cmd-panel{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:4px}
-.cmd-panel::-webkit-scrollbar{width:4px}
-.cmd-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.cmd-seccion-titulo{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:6px 0 4px}
 
-/* Personaje item en lista */
+/* ── NUEVA ESTRUCTURA: Sections ────────────────────────────── */
+.cmd-sections{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.cmd-sections::-webkit-scrollbar{width:4px}
+.cmd-sections::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.cmd-section{border-bottom:1px solid var(--border);flex-shrink:0}
+.cmd-section:last-child{border-bottom:none}
+
+.cmd-section-header{padding:10px 14px;background:var(--bg2);font-size:12px;font-weight:700;color:var(--text);cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;transition:background .15s}
+.cmd-section-header:hover{background:var(--bg3)}
+.cmd-section-header::after{content:"▼";font-size:10px;color:var(--muted);transition:transform .15s}
+.cmd-section-header.collapsed::after{transform:rotate(-90deg)}
+
+.cmd-section-content{padding:10px;display:flex;flex-direction:column;gap:4px;max-height:500px;overflow-y:auto}
+.cmd-section-content::-webkit-scrollbar{width:3px}
+.cmd-section-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.cmd-section-content.hidden{display:none}
+
+.cmd-subsection{margin-bottom:8px}
+.cmd-subsection-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;font-weight:600}
+
+/* ── Tabs planos antiguos (DEPRECATED pero mantener compatibilidad) ──*/
+.cmd-tabs{display:none}
+.cmd-panel{display:none}
+
+/* ── Panel Personajes ──────────────────────────────────────── */
 .personaje-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);cursor:grab;transition:border-color .15s;margin-bottom:4px}
 .personaje-item:hover{border-color:var(--border2)}
 .personaje-item.activo{border-color:var(--accent)}
@@ -146,13 +164,13 @@ textarea:focus{border-color:var(--accent)}
 
 /* Dados */
 .dados-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.dado-btn{padding:10px 4px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);cursor:pointer;font-size:13px;font-weight:700;transition:background .15s,border-color .15s}
+.dado-btn{padding:10px 4px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);cursor:pointer;font-size:13px;font-weight:700;transition:background .15s,border-color .15s;margin-bottom:4px}
 .dado-btn:hover{background:var(--border);border-color:var(--accent)}
 .dado-resultado{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;font-size:22px;font-weight:700;margin-top:10px}
 
 /* Música */
 #musica-lista{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
-.musica-item{padding:7px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:12px;transition:border-color .15s;display:flex;align-items:center;gap:8px;user-select:none}
+.musica-item{padding:7px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:12px;transition:border-color .15s;display:flex;align-items:center;gap:6px}
 .musica-item:hover{border-color:var(--border2)}
 .musica-item.activo{border-color:var(--gold)}
 .musica-item-ico{font-size:14px}
@@ -166,7 +184,7 @@ textarea:focus{border-color:var(--accent)}
 .volumen-wrap{display:flex;align-items:center;gap:8px;font-size:13px}
 .volumen-wrap input[type=range]{flex:1}
 
-/* GM panel */
+/* ── GM Panel ──────────────────────────────────────────────── */
 .gm-fila{display:flex;gap:6px;align-items:center;margin-bottom:4px}
 .gm-input{padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;outline:none;width:100%}
 .gm-input:focus{border-color:var(--accent)}
@@ -185,7 +203,16 @@ textarea:focus{border-color:var(--accent)}
 .gm-plantilla-item{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--bg3);border-radius:6px;font-size:12px;margin-bottom:3px}
 .gm-sel-nom{font-weight:700;font-size:13px;margin-bottom:6px}
 
-/* ── Columna Mapa ──────────────────────────────────────────── */
+/* ── GM Sub-tabs ───────────────────────────────────────────── */
+.gm-subtabs{display:flex;gap:2px;background:var(--bg3);border-bottom:1px solid var(--border);margin-bottom:10px;flex-shrink:0}
+.gm-subtab{flex:1;padding:8px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:color .15s,border-color .15s}
+.gm-subtab.activo{color:var(--text);border-bottom-color:var(--accent)}
+.gm-subtab:hover:not(.activo){color:var(--text)}
+
+.gm-tab-content{display:none}
+.gm-tab-content.activo{display:block}
+
+/* ── Columna Mapa ──────────────────────────────────────── */
 #col-mapa{flex:1;position:relative;overflow:hidden;background:var(--bg0)}
 #tablero{display:block;width:100%;height:100%;cursor:crosshair}
 
@@ -420,6 +447,7 @@ textarea:focus{border-color:var(--accent)}
 .btn-mapa-flotante.activo:hover {
   background: #2471a3;
 }
+
 /* ══════════════════════════════════════════════════════════════
    PANEL DE DETALLE DE HABILIDAD
 ══════════════════════════════════════════════════════════════ */
@@ -598,3 +626,5 @@ textarea:focus{border-color:var(--accent)}
   padding: 3px 6px !important;
   font-size: 12px !important;
 }
+
+.cmd-seccion-titulo{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:6px 0 4px}
