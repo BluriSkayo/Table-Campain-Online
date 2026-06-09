@@ -88,185 +88,205 @@
     <!-- ══ COLUMNA IZQUIERDA: Comandos ══ -->
     <div id="col-comandos">
 
-      <!-- Tabs del panel de comandos -->
-      <div class="cmd-tabs">
-        <button class="cmd-tab activo" data-panel="personajes">👤 Personajes</button>
-        <button class="cmd-tab" data-panel="habilidades">⚡ Habilidades</button>
-        <button class="cmd-tab" data-panel="dados">🎲 Dados</button>
-        <button class="cmd-tab" data-panel="musica">🎵 Música</button>
-        <button class="cmd-tab gm-only oculto" data-panel="gm">👑 GM</button>
-      </div>
+      <!-- NUEVA ESTRUCTURA: Secciones en lugar de tabs planos -->
+      <div class="cmd-sections">
 
-      <!-- Panel: Personajes -->
-      <div id="panel-personajes" class="cmd-panel">
-        <div class="cmd-seccion-titulo">Mis personajes</div>
-        <div id="lista-mis-personajes"></div>
-        <button class="cmd-btn azul" id="btn-crear-personaje">＋ Crear personaje</button>
+        <!-- ══ SECCIÓN: PERSONAJES ══ -->
+        <div class="cmd-section">
+          <div class="cmd-section-header">👤 Personajes</div>
+          <div class="cmd-section-content">
+            <div id="lista-mis-personajes"></div>
+            <button class="cmd-btn azul" id="btn-crear-personaje">＋ Crear personaje</button>
 
-        <!-- Ficha de personaje (desplegada al seleccionar) -->
-        <div id="ficha-personaje" class="oculto">
-          <div class="ficha-header">
-            <img id="fp-portrait" class="fp-portrait oculto" alt="Retrato"/>
-            <div id="fp-dot"></div>
-            <div>
-              <div id="fp-nombre"></div>
-              <div id="fp-clase"></div>
+            <!-- Ficha de personaje (desplegada al seleccionar) -->
+            <div id="ficha-personaje" class="oculto">
+              <div class="ficha-header">
+                <img id="fp-portrait" class="fp-portrait oculto" alt="Retrato"/>
+                <div id="fp-dot"></div>
+                <div>
+                  <div id="fp-nombre"></div>
+                  <div id="fp-clase"></div>
+                </div>
+                <button class="btn-icono" id="fp-cerrar">✕</button>
+              </div>
+              <div id="fp-hp-wrap">
+                <div class="barra-bg"><div id="fp-hp-barra" class="barra-fill verde"></div></div>
+                <div class="barra-txt"><span>HP</span><span id="fp-hp-txt"></span></div>
+              </div>
+              <div id="fp-mp-wrap">
+                <div class="barra-bg"><div id="fp-mp-barra" class="barra-fill azul"></div></div>
+                <div class="barra-txt"><span>MP</span><span id="fp-mp-txt"></span></div>
+              </div>
+              <div id="fp-stats-grid"></div>
+              <div class="ficha-acciones">
+                <button class="cmd-btn azul" id="btn-editar-personaje">✏️ Editar</button>
+                <button class="cmd-btn naranja" id="btn-mod-estado">💊 Estado</button>
+              </div>
             </div>
-            <button class="btn-icono" id="fp-cerrar">✕</button>
-          </div>
-          <div id="fp-hp-wrap">
-            <div class="barra-bg"><div id="fp-hp-barra" class="barra-fill verde"></div></div>
-            <div class="barra-txt"><span>HP</span><span id="fp-hp-txt"></span></div>
-          </div>
-          <div id="fp-mp-wrap">
-            <div class="barra-bg"><div id="fp-mp-barra" class="barra-fill azul"></div></div>
-            <div class="barra-txt"><span>MP</span><span id="fp-mp-txt"></span></div>
-          </div>
-          <div id="fp-stats-grid"></div>
-          <div class="ficha-acciones">
-            <button class="cmd-btn azul" id="btn-editar-personaje">✏️ Editar</button>
-          </div>
-          <div class="ficha-acciones">
-            <button class="cmd-btn naranja" id="btn-mod-estado">💊 Modificar estado</button>
+
+            <!-- Objetos del personaje activo -->
+            <div id="panel-objetos" class="oculto" style="margin-top:8px">
+              <div class="cmd-seccion-titulo">🎒 Objetos</div>
+              <div id="lista-objetos"></div>
+            </div>
+
+            <!-- Habilidades del personaje activo -->
+            <div id="panel-habilidades-personal" class="oculto" style="margin-top:8px">
+              <div class="cmd-seccion-titulo">⚡ Habilidades</div>
+              <div id="lista-habilidades"></div>
+              <div id="habilidades-sin-personaje" class="cmd-vacio">
+                Selecciona un personaje primero
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Objetos del personaje activo -->
-        <div id="panel-objetos" class="oculto">
-          <div class="cmd-seccion-titulo">🎒 Objetos</div>
-          <div id="lista-objetos"></div>
-        </div>
-      </div>
-
-      <!-- Panel: Habilidades -->
-      <div id="panel-habilidades" class="cmd-panel oculto">
-        <div class="cmd-seccion-titulo">Habilidades de tu personaje activo</div>
-        <div id="lista-habilidades"></div>
-        <div id="habilidades-sin-personaje" class="cmd-vacio">
-          Selecciona un personaje primero
-        </div>
-      </div>
-
-      <!-- Panel: Dados -->
-      <div id="panel-dados" class="cmd-panel oculto">
-        <div class="cmd-seccion-titulo">Tirar dados</div>
-        <div class="dados-grid">
-          <button class="dado-btn" data-dado="d4">d4</button>
-          <button class="dado-btn" data-dado="d6">d6</button>
-          <button class="dado-btn" data-dado="d8">d8</button>
-          <button class="dado-btn" data-dado="d10">d10</button>
-          <button class="dado-btn" data-dado="d12">d12</button>
-          <button class="dado-btn" data-dado="d20">d20</button>
-          <button class="dado-btn" data-dado="d100">d100</button>
-        </div>
-        <div class="cmd-seccion-titulo" style="margin-top:14px">Tirada personalizada</div>
-        <div class="gm-fila">
-          <input class="gm-input" id="dado-custom-cant" type="number" min="1" max="99" value="1" style="width:50px"/>
-          <span style="color:var(--muted)">d</span>
-          <input class="gm-input" id="dado-custom-caras" type="number" min="2" max="10000" value="20"/>
-          <button class="cmd-btn azul" id="btn-dado-custom">Tirar</button>
-        </div>
-        <div id="dado-resultado" class="dado-resultado oculto"></div>
-      </div>
-
-      <!-- Panel: Música (Rocola) -->
-      <div id="panel-musica" class="cmd-panel oculto">
-        <div class="cmd-seccion-titulo">🎵 Rocola</div>
-        <div id="musica-lista"></div>
-        <div id="musica-vacio" class="cmd-vacio">
-          No hay música en resources/music/
-        </div>
-        <div id="musica-controles">
-          <div class="musica-actual">
-            <span id="musica-nombre-actual">Sin reproducir</span>
-          </div>
-          <div class="musica-btns">
-            <button class="musica-btn" id="btn-prev">⏮</button>
-            <button class="musica-btn grande" id="btn-play">▶</button>
-            <button class="musica-btn" id="btn-next">⏭</button>
-            <button class="musica-btn" id="btn-loop">🔁</button>
-          </div>
-          <div class="volumen-wrap">
-            <span title="Música">🎵</span>
-            <input type="range" id="vol-musica" min="0" max="100" value="70"/>
-            <span id="vol-musica-txt">70%</span>
-          </div>
-          <div class="volumen-wrap">
-            <span title="SFX">🔊</span>
-            <input type="range" id="vol-sfx" min="0" max="100" value="70"/>
-            <span id="vol-sfx-txt">70%</span>
+        <!-- ══ SECCIÓN: ACCIONES ══ -->
+        <div class="cmd-section">
+          <div class="cmd-section-header">🎲 Acciones</div>
+          <div class="cmd-section-content">
+            <!-- Dados rápidos -->
+            <div class="cmd-subsection">
+              <div class="cmd-subsection-title">Dados</div>
+              <div class="dados-grid">
+                <button class="dado-btn" data-dado="d4">d4</button>
+                <button class="dado-btn" data-dado="d6">d6</button>
+                <button class="dado-btn" data-dado="d8">d8</button>
+                <button class="dado-btn" data-dado="d10">d10</button>
+                <button class="dado-btn" data-dado="d12">d12</button>
+                <button class="dado-btn" data-dado="d20">d20</button>
+                <button class="dado-btn" data-dado="d100">d100</button>
+              </div>
+              <div style="margin-top:8px">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Tirada personalizada</div>
+                <div class="gm-fila">
+                  <input class="gm-input" id="dado-custom-cant" type="number" min="1" max="99" value="1" style="width:50px"/>
+                  <span style="color:var(--muted)">d</span>
+                  <input class="gm-input" id="dado-custom-caras" type="number" min="2" max="10000" value="20"/>
+                  <button class="cmd-btn azul" id="btn-dado-custom">Tirar</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Panel: GM -->
-      <div id="panel-gm" class="cmd-panel oculto">
-        <!-- Plantilla -->
-        <div class="cmd-seccion-titulo">Plantilla de stats</div>
-        <div id="gm-aviso-bloq" class="gm-aviso oculto">
-          🔒 Jugadores con ficha. <button class="gm-link" id="btn-desbloquear">Desbloquear</button>
-        </div>
-        <div id="gm-stats-lista"></div>
-        <button class="cmd-btn azul" id="btn-add-stat">＋ Añadir stat</button>
-        <div id="gm-form-stat" class="gm-form oculto">
-          <input class="gm-input" id="gf-nombre" placeholder="Nombre (ej: Fuerza)"/>
-          <select class="gm-input" id="gf-tipo">
-            <option value="ofensiva">Ofensiva</option>
-            <option value="defensiva">Defensiva</option>
-            <option value="neutral">Neutral</option>
-          </select>
-          <div id="gf-vs-wrap">
-            <label class="gm-label">Enfrenta a:</label>
-            <select class="gm-input" id="gf-vs"></select>
+        <!-- ══ SECCIÓN: AMBIENTE ══ -->
+        <div class="cmd-section">
+          <div class="cmd-section-header">🎵 Ambiente</div>
+          <div class="cmd-section-content">
+            <div class="cmd-seccion-titulo">Rocola</div>
+            <div id="musica-lista"></div>
+            <div id="musica-vacio" class="cmd-vacio">
+              No hay música en resources/music/
+            </div>
+            <div id="musica-controles">
+              <div class="musica-actual">
+                <span id="musica-nombre-actual">Sin reproducir</span>
+              </div>
+              <div class="musica-btns">
+                <button class="musica-btn" id="btn-prev">⏮</button>
+                <button class="musica-btn grande" id="btn-play">▶</button>
+                <button class="musica-btn" id="btn-next">⏭</button>
+                <button class="musica-btn" id="btn-loop">🔁</button>
+              </div>
+              <div class="volumen-wrap">
+                <span title="Música">🎵</span>
+                <input type="range" id="vol-musica" min="0" max="100" value="70"/>
+                <span id="vol-musica-txt">70%</span>
+              </div>
+              <div class="volumen-wrap">
+                <span title="SFX">🔊</span>
+                <input type="range" id="vol-sfx" min="0" max="100" value="70"/>
+                <span id="vol-sfx-txt">70%</span>
+              </div>
+            </div>
           </div>
-          <select class="gm-input" id="gf-dado">
-            <option>d4</option><option>d6</option><option>d8</option>
-            <option selected>d20</option><option>d100</option>
-          </select>
-          <div class="gm-fila">
-            <button class="cmd-btn verde" id="gf-ok">✓ Añadir</button>
-            <button class="cmd-btn" id="gf-cancelar">✕</button>
+        </div>
+
+        <!-- ══ SECCIÓN: GM (solo visible para GM) ══ -->
+        <div id="cmd-section-gm" class="cmd-section gm-only oculto">
+          <div class="cmd-section-header">👑 Game Master</div>
+          <div class="cmd-section-content">
+            <!-- GM Sub-tabs -->
+            <div class="gm-subtabs">
+              <button class="gm-subtab activo" data-gm-tab="config">⚙️ Config</button>
+              <button class="gm-subtab" data-gm-tab="combate">⚔️ Combate</button>
+              <button class="gm-subtab" data-gm-tab="mapa">🗺️ Mapa</button>
+            </div>
+
+            <!-- ── Config Tab ── -->
+            <div id="gm-tab-config" class="gm-tab-content">
+              <div class="cmd-seccion-titulo">Plantilla de stats</div>
+              <div id="gm-aviso-bloq" class="gm-aviso oculto">
+                🔒 Jugadores con ficha. <button class="gm-link" id="btn-desbloquear">Desbloquear</button>
+              </div>
+              <div id="gm-stats-lista"></div>
+              <button class="cmd-btn azul" id="btn-add-stat" style="margin-top:4px">＋ Añadir stat</button>
+              <div id="gm-form-stat" class="gm-form oculto">
+                <input class="gm-input" id="gf-nombre" placeholder="Nombre (ej: Fuerza)"/>
+                <select class="gm-input" id="gf-tipo">
+                  <option value="ofensiva">Ofensiva</option>
+                  <option value="defensiva">Defensiva</option>
+                  <option value="neutral">Neutral</option>
+                </select>
+                <div id="gf-vs-wrap">
+                  <label class="gm-label">Enfrenta a:</label>
+                  <select class="gm-input" id="gf-vs"></select>
+                </div>
+                <select class="gm-input" id="gf-dado">
+                  <option>d4</option><option>d6</option><option>d8</option>
+                  <option selected>d20</option><option>d100</option>
+                </select>
+                <div class="gm-fila">
+                  <button class="cmd-btn verde" id="gf-ok">✓ Añadir</button>
+                  <button class="cmd-btn" id="gf-cancelar">✕</button>
+                </div>
+              </div>
+
+              <div class="cmd-seccion-titulo" style="margin-top:12px">Plantillas guardadas</div>
+              <div class="gm-fila">
+                <input class="gm-input flex1" id="gm-plant-nom" placeholder="Nombre plantilla"/>
+                <button class="cmd-btn azul" id="btn-guardar-plantilla">💾</button>
+              </div>
+              <div id="gm-lista-plantillas"></div>
+
+              <div class="cmd-seccion-titulo" style="margin-top:12px">Habilidades globales</div>
+              <button class="cmd-btn azul" id="btn-abrir-gestion-habilidades">⚡ Gestionar Habilidades</button>
+            </div>
+
+            <!-- ── Combate Tab ── -->
+            <div id="gm-tab-combate" class="gm-tab-content oculto">
+              <div class="cmd-seccion-titulo">Control de Combate</div>
+              <button class="cmd-btn verde" id="btn-iniciar-combate">⚔️ Iniciar combate</button>
+              <button class="cmd-btn rojo oculto" id="btn-terminar-combate">🏳️ Terminar combate</button>
+              <button class="cmd-btn azul oculto" id="btn-sig-turno">⏭️ Siguiente turno</button>
+
+              <div class="cmd-seccion-titulo" style="margin-top:12px">Token seleccionado</div>
+              <div id="gm-sel-vacio" class="cmd-vacio">Haz clic en un token</div>
+              <div id="gm-sel-controles" class="oculto">
+                <div id="gm-sel-nombre" class="gm-sel-nom"></div>
+                <div class="gm-fila">
+                  <label class="gm-label">HP</label><input class="gm-input mini" id="gm-sel-hp" type="number"/>
+                  <label class="gm-label">MP</label><input class="gm-input mini" id="gm-sel-mp" type="number"/>
+                </div>
+                <button class="cmd-btn azul" id="btn-aplicar-gm-token">💾 Aplicar</button>
+                <button class="cmd-btn rojo" id="btn-borrar-gm-token">🗑️ Borrar token</button>
+              </div>
+            </div>
+
+            <!-- ── Mapa Tab ── -->
+            <div id="gm-tab-mapa" class="gm-tab-content oculto">
+              <div class="cmd-seccion-titulo">Editar capas de mapa</div>
+              <div class="cmd-vacio" style="text-align:left;font-style:normal;font-size:12px;padding:8px 0;margin-bottom:8px">
+                Haz clic en <strong>🗺️</strong> en la esquina del mapa para editar interactivamente.
+              </div>
+              <div id="mapa-lista"></div>
+              <div id="mapa-vacio" class="cmd-vacio oculto">No hay imágenes cargadas</div>
+            </div>
           </div>
         </div>
-        <div class="gm-fila" style="margin-top:8px">
-          <input class="gm-input flex1" id="gm-plant-nom" placeholder="Nombre plantilla"/>
-          <button class="cmd-btn azul" id="btn-guardar-plantilla">💾</button>
-        </div>
-        <div id="gm-lista-plantillas"></div>
 
-        <!-- Combate -->
-        <div class="cmd-seccion-titulo" style="margin-top:12px">Combate</div>
-        <button class="cmd-btn verde"  id="btn-iniciar-combate">⚔️ Iniciar</button>
-        <button class="cmd-btn rojo oculto" id="btn-terminar-combate">🏳️ Terminar</button>
-        <button class="cmd-btn azul oculto" id="btn-sig-turno">⏭️ Siguiente turno</button>
-
-        <!-- Token seleccionado -->
-        <div class="cmd-seccion-titulo" style="margin-top:12px">Token seleccionado</div>
-        <div id="gm-sel-vacio" class="cmd-vacio">Haz clic en un token</div>
-        <div id="gm-sel-controles" class="oculto">
-          <div id="gm-sel-nombre" class="gm-sel-nom"></div>
-          <div class="gm-fila">
-            <label class="gm-label">HP</label><input class="gm-input mini" id="gm-sel-hp" type="number"/>
-            <label class="gm-label">MP</label><input class="gm-input mini" id="gm-sel-mp" type="number"/>
-          </div>
-          <button class="cmd-btn azul"  id="btn-aplicar-gm-token">💾 Aplicar</button>
-          <button class="cmd-btn rojo"  id="btn-borrar-gm-token">🗑️ Borrar token</button>
-        </div>
-
-        <!-- Mapa de fondo -->
-        <div class="cmd-seccion-titulo" style="margin-top:12px">Capas de mapa</div>
-        <div class="cmd-vacio" style="text-align:left;font-style:normal;font-size:12px;padding:8px 0">
-          Usa el botón <strong>🗺️</strong> en la esquina del mapa para editar las capas de imagen.
-        </div>
-        <div id="mapa-lista"></div>
-        <div id="mapa-vacio" class="cmd-vacio oculto">No hay imágenes en resources/maps/</div>
-        <button class="cmd-btn" id="btn-quitar-mapa" style="display:none">✕ Sin mapa</button>
-
-        <!-- Gestionar Habilidades -->
-        <div class="cmd-seccion-titulo" style="margin-top:12px">Habilidades</div>
-        <button class="cmd-btn azul" id="btn-abrir-gestion-habilidades">⚡ Gestionar Habilidades</button>
-
-      </div>
+      </div><!-- /cmd-sections -->
 
     </div><!-- /col-comandos -->
 
