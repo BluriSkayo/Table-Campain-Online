@@ -613,8 +613,15 @@ async def manejar(ws, msg: dict):
         hab = msg.get("habilidad",{})
         if not hab.get("nombre"): return
         if any(h["nombre"]==hab["nombre"] for h in habilidades): return
-        habilidades.append({"nombre":hab.get("nombre",""),"formula":hab.get("formula","0"),
-                            "stat_base":hab.get("stat_base",""),"descripcion":hab.get("descripcion","")})
+        habilidades.append({
+            "nombre":      hab.get("nombre",""),
+            "formula":     hab.get("formula","0"),
+            "stat_base":   hab.get("stat_base",""),
+            "descripcion": hab.get("descripcion",""),
+            "coste_mp":    hab.get("coste_mp", 0),       # coste en MP por uso
+            "alcance":     hab.get("alcance", []),        # lista de [fila,col] relativas al token
+            "zona":        hab.get("zona", []),           # lista de [fila,col] relativas al objetivo
+        })
         guardar_habilidades()
         await broadcast({"tipo":"habilidades_globales_actualizadas","habilidades_globales":habilidades})
 
@@ -630,8 +637,15 @@ async def manejar(ws, msg: dict):
         hab      = msg.get("habilidad",{})
         if not nom_orig or not hab.get("nombre"): return
         if nom_orig == "Ataque": return
-        nueva = {"nombre":hab["nombre"],"formula":hab.get("formula","0"),
-                 "stat_base":hab.get("stat_base",""),"descripcion":hab.get("descripcion","")}
+        nueva = {
+            "nombre":      hab["nombre"],
+            "formula":     hab.get("formula","0"),
+            "stat_base":   hab.get("stat_base",""),
+            "descripcion": hab.get("descripcion",""),
+            "coste_mp":    hab.get("coste_mp", 0),
+            "alcance":     hab.get("alcance", []),
+            "zona":        hab.get("zona", []),
+        }
         idx = next((i for i,h in enumerate(habilidades) if h["nombre"]==nom_orig), None)
         if idx is None: return
         habilidades[idx] = nueva
@@ -655,6 +669,28 @@ async def manejar(ws, msg: dict):
             if ci.get("nombre") in afectados:
                 await enviar(ws_c,{"tipo":"personajes_actualizados",
                                    "personajes":personajes.get(ci["nombre"],[])})
+
+    # ─── JUGADOR: EDITAR SU COPIA DE UNA HABILIDAD (coste_mp) ─────
+    elif tipo == "editar_habilidad_personaje":
+        # El jugador puede personalizar el coste_mp de su copia de la habilidad
+        if not nombre: return
+        nom_p   = msg.get("nombre_personaje")
+        nom_hab = msg.get("nombre_habilidad")
+        p = next((x for x in personajes.get(nombre,[]) if x["nombre"]==nom_p), None)
+        # El GM puede editar la habilidad de cualquier personaje
+        owner = nombre
+        if not p and es_gm:
+            for jug, plist in personajes.items():
+                found = next((x for x in plist if x["nombre"]==nom_p), None)
+                if found: p = found; owner = jug; break
+        if not p: return
+        hab_p = next((h for h in p.get("habilidades",[]) if h["nombre"]==nom_hab), None)
+        if not hab_p: return
+        if "coste_mp" in msg:
+            hab_p["coste_mp"] = int(msg["coste_mp"])
+        guardar_personajes(owner)
+        await enviar(ws, {"tipo":"personaje_actualizado","personaje":p,
+                          "personajes":personajes.get(nombre,[])})
 
     elif tipo == "añadir_habilidad_personaje":
         if not nombre: return

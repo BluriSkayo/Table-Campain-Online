@@ -23,37 +23,6 @@ campanas:
     modo: local
     nombre: local
 mensajes:
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
-    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
-    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
-    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [aMagia - oDefensa
-    Mágica] → aMagia=10 | oDefensa Mágica=10 = 0'
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [[aMagia] -
-    [oDefensa Mágica]] → aMagia=10 | oDefensa Mágica=10 | ERROR:Carácter inválido:
-    [10] - [10] = 0'
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque en Víctima de Golpes: 40 daño | [40] →  = 40'
-- autor: Combate
-  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 0 daño | [[aMagia] -
-    [oDefensa Mágica]] → [aMagia]=10 | [oDefensa Mágica]=10 = 0'
-- autor: BluriSkayo
-  texto: 🎲 tiró 14d20 → 1 + 2 + 6 + 11 + 14 + 9 + 19 + 17 + 19 + 9 + 4 + 3 + 18 +
-    14 = **146**
-- autor: BluriSkayo
-  texto: 🎲 tiró 14d20 → 5 + 6 + 18 + 20 + 18 + 2 + 15 + 10 + 11 + 19 + 10 + 7 + 16
-    + 16 = **173**
-- autor: BluriSkayo
-  texto: 🎲 tiró d4 → **4**
-- autor: BluriSkayo
-  texto: 🎲 tiró d6 → **3**
 - autor: BluriSkayo
   texto: 🎲 tiró d10 → **8**
 - autor: Combate
@@ -267,6 +236,32 @@ mensajes:
 - autor: Combate
   texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 10 daño | [a.Magia] -
     [o.Defensa Mágica] → [a.Magia]=20 | [o.Defensa Mágica]=10 = 10'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 10 daño | [a.Magia] -
+    [o.Defensa Mágica] → [a.Magia]=20 | [o.Defensa Mágica]=10 = 10'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 10 daño | [a.Magia] -
+    [o.Defensa Mágica] → [a.Magia]=20 | [o.Defensa Mágica]=10 = 10'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Víctima de Golpes: 10 daño | [a.Magia] -
+    [o.Defensa Mágica] → [a.Magia]=20 | [o.Defensa Mágica]=10 = 10'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque de Test en Testeo: 10 daño | [a.Magia] - [o.Defensa
+    Mágica] → [a.Magia]=20 | [o.Defensa Mágica]=10 = 10'
+- autor: Combate
+  texto: '⚔️ Testeo usó Ataque en Testeo: 40 daño | 40 →  = 40'
+- autor: BluriSkayo
+  texto: 🎲 tiró d6 → **6**
+- autor: BluriSkayo
+  texto: 🎲 tiró d8 → **7**
+- autor: BluriSkayo
+  texto: 🎲 tiró d10 → **9**
+- autor: BluriSkayo
+  texto: 🎲 tiró d12 → **3**
+- autor: BluriSkayo
+  texto: 🎲 tiró d20 → **17**
+- autor: BluriSkayo
+  texto: 🎲 tiró d100 → **99**
 plantilla:
 - dado: d20
   nombre: Magia

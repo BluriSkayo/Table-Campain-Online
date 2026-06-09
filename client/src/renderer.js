@@ -1424,37 +1424,271 @@ function rellenarTabHabilidades(modal, id, p){
   renderHabilidadesFlotante(cont, p);
 }
 
+// ── Constantes de la grilla de habilidad ──────────────────────────
+const HAB_GRID_ROWS = 11;  // filas de la grilla (índice 5 = centro)
+const HAB_GRID_COLS = 11;  // columnas de la grilla (índice 5 = centro)
+const HAB_GRID_CENTER = 5; // índice de la celda central (el token)
+
+// ── Crear una grilla interactiva de alcance/zona ───────────────────
+// celdas: Set de strings "fila,col"
+// onChange: función llamada con el nuevo Set al cambiar
+// color: color de las celdas activas
+// editable: si el usuario puede editar la grilla
+function crearGrillaHabilidad(celdas, onChange, color, editable) {
+  const wrap = document.createElement("div");
+  wrap.className = "hab-grid-wrap";
+
+  const grid = document.createElement("div");
+  grid.className = "hab-grid";
+  grid.style.setProperty("--grid-cols", HAB_GRID_COLS);
+
+  for (let r = 0; r < HAB_GRID_ROWS; r++) {
+    for (let c = 0; c < HAB_GRID_COLS; c++) {
+      const cell = document.createElement("div");
+      cell.className = "hab-grid-cell";
+      const key = `${r},${c}`;
+      const esCentro = r === HAB_GRID_CENTER && c === HAB_GRID_CENTER;
+
+      if (esCentro) {
+        cell.classList.add("hab-grid-center");
+      } else if (celdas.has(key)) {
+        cell.classList.add("hab-grid-active");
+        cell.style.background = color;
+      }
+
+      if (editable && !esCentro) {
+        cell.style.cursor = "pointer";
+        let painting = false;
+        let paintMode = null; // "add" | "remove"
+
+        cell.addEventListener("mousedown", e => {
+          e.preventDefault();
+          painting = true;
+          paintMode = celdas.has(key) ? "remove" : "add";
+          toggleCell(key, cell, color, celdas, paintMode);
+          onChange(celdas);
+        });
+        cell.addEventListener("mouseenter", e => {
+          if (painting && e.buttons === 1) {
+            toggleCell(key, cell, color, celdas, paintMode);
+            onChange(celdas);
+          }
+        });
+        cell.addEventListener("mouseup", () => { painting = false; });
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  document.addEventListener("mouseup", () => {
+    grid.querySelectorAll(".hab-grid-cell").forEach(c => c._painting = false);
+  });
+
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+function toggleCell(key, cell, color, celdas, modo) {
+  if (modo === "add") {
+    celdas.add(key);
+    cell.classList.add("hab-grid-active");
+    cell.style.background = color;
+  } else {
+    celdas.delete(key);
+    cell.classList.remove("hab-grid-active");
+    cell.style.background = "";
+  }
+}
+
+// Convierte array [[r,c],...] a Set de strings "r,c"
+function arrayACeldas(arr) {
+  return new Set((arr||[]).map(([r,c])=>`${r},${c}`));
+}
+
+// Convierte Set de strings "r,c" a array [[r,c],...]
+function celdasAArray(set) {
+  return [...set].map(s=>s.split(",").map(Number));
+}
+
+// ── Panel de detalle de habilidad (clic en una habilidad) ─────────
+function mostrarDetalleHabilidad(cont, h, p, esEditable) {
+  // Buscar la definición global para alcance/zona (siempre viene de habilidadesGlobales)
+  const hGlobal = habilidadesGlobales.find(g => g.nombre === h.nombre) || h;
+
+  // coste_mp: la copia del personaje puede tener su propio valor
+  const costeMp = h.coste_mp ?? hGlobal.coste_mp ?? 0;
+
+  // Construir sets de celdas a partir de los arrays guardados
+  const celdasAlcance = arrayACeldas(hGlobal.alcance || []);
+  const celdasZona    = arrayACeldas(hGlobal.zona    || []);
+
+  const panel = document.createElement("div");
+  panel.className = "hab-detalle-panel";
+
+  // ── Cabecera ──
+  panel.innerHTML = `
+    <div class="hab-detalle-header">
+      <button class="hab-detalle-back btn-icono" title="Volver">‹</button>
+      <span class="hab-detalle-titulo">${esc(h.nombre)}</span>
+    </div>
+    <div class="hab-detalle-info">
+      <div class="hab-info-row">
+        <span class="hab-info-label">EFECTO</span>
+        <span class="hab-info-valor">${esc(h.formula)}</span>
+      </div>
+      <div class="hab-info-row">
+        <span class="hab-info-label">BASE</span>
+        <span class="hab-info-valor">${esc(hGlobal.stat_base||"—")}</span>
+      </div>
+      <div class="hab-info-row">
+        <span class="hab-info-label">MP</span>
+        <span class="hab-info-valor" id="hab-coste-mp-val">${esc(costeMp)}</span>
+        ${esEditable ? `<input class="hab-coste-mp-input gm-input" type="number" min="0" max="999" value="${esc(costeMp)}" style="width:54px;margin-left:6px"/>` : ""}
+      </div>
+      ${hGlobal.descripcion ? `<div class="hab-detalle-desc">${esc(hGlobal.descripcion)}</div>` : ""}
+    </div>`;
+
+  // ── Grillas ──
+  const grillasWrap = document.createElement("div");
+  grillasWrap.className = "hab-grillas-wrap";
+
+  // ALCANCE
+  const alcanceBloque = document.createElement("div");
+  alcanceBloque.className = "hab-grilla-bloque";
+  const alcanceTitulo = document.createElement("div");
+  alcanceTitulo.className = "hab-grilla-titulo alcance";
+  alcanceTitulo.textContent = "ALCANCE";
+  alcanceBloque.appendChild(alcanceTitulo);
+  // Solo el GM puede editar grillas globales
+  const grAlcance = crearGrillaHabilidad(celdasAlcance, (nuevas) => {
+    guardarGrillaHabilidad(h.nombre, celdasAArray(nuevas), celdasAArray(celdasZona));
+  }, "#e67e22", esGM);
+  alcanceBloque.appendChild(grAlcance);
+
+  // ZONA
+  const zonaBloque = document.createElement("div");
+  zonaBloque.className = "hab-grilla-bloque";
+  const zonaTitulo = document.createElement("div");
+  zonaTitulo.className = "hab-grilla-titulo zona";
+  zonaTitulo.textContent = "ZONA";
+  zonaBloque.appendChild(zonaTitulo);
+  const grZona = crearGrillaHabilidad(celdasZona, (nuevas) => {
+    guardarGrillaHabilidad(h.nombre, celdasAArray(celdasAlcance), celdasAArray(nuevas));
+  }, "#9b59b6", esGM);
+  zonaBloque.appendChild(grZona);
+
+  grillasWrap.appendChild(alcanceBloque);
+  grillasWrap.appendChild(zonaBloque);
+  panel.appendChild(grillasWrap);
+
+  // ── Botón guardar MP (si es editable) ──
+  if (esEditable) {
+    const mpInput = panel.querySelector(".hab-coste-mp-input");
+    if (mpInput) {
+      const btnGuardarMp = document.createElement("button");
+      btnGuardarMp.className = "cmd-btn azul";
+      btnGuardarMp.textContent = "💾 Guardar coste MP";
+      btnGuardarMp.style.marginTop = "8px";
+      btnGuardarMp.addEventListener("click", () => {
+        const nuevoMp = parseInt(mpInput.value) || 0;
+        enviar({
+          tipo: "editar_habilidad_personaje",
+          nombre_personaje: p.nombre,
+          nombre_habilidad:  h.nombre,
+          coste_mp:          nuevoMp,
+        });
+      });
+      panel.appendChild(btnGuardarMp);
+    }
+  }
+
+  // Botón volver
+  panel.querySelector(".hab-detalle-back").addEventListener("click", () => {
+    panel.remove();
+    cont._listaHabs.classList.remove("oculto");
+    cont._addArea.classList.remove("oculto");
+  });
+
+  cont._listaHabs.classList.add("oculto");
+  cont._addArea.classList.add("oculto");
+  cont.appendChild(panel);
+}
+
+// Enviar grilla actualizada al servidor (solo GM puede)
+function guardarGrillaHabilidad(nombreHabilidad, nuevoAlcance, nuevaZona) {
+  if (!esGM) return;
+  const hGlobal = habilidadesGlobales.find(h => h.nombre === nombreHabilidad);
+  if (!hGlobal) return;
+  enviar({
+    tipo: "gm_editar_habilidad",
+    nombre_original: nombreHabilidad,
+    habilidad: {
+      ...hGlobal,
+      alcance: nuevoAlcance,
+      zona:    nuevaZona,
+    }
+  });
+}
+
 function renderHabilidadesFlotante(cont, p){
   cont.innerHTML="";
   const habs=p.habilidades||[];
+  const esDueno = p.owner === miNombre || esGM;
 
+  // ── Lista de habilidades ──
   const lista=document.createElement("div");
+  lista.className = "hab-lista-scroll";
   habs.forEach(h=>{
-    const row=document.createElement("div"); row.className="hab-item";
-    row.innerHTML=`<div><div class="hab-nombre">${esc(h.nombre)}</div><div class="hab-formula">📐 ${esc(h.formula)}</div></div>`;
-    if(h.nombre!=="Ataque"){
-      const btnOlv=document.createElement("button"); btnOlv.className="gm-stat-del"; btnOlv.textContent="✕";
-      btnOlv.title="Olvidar habilidad";
-      btnOlv.addEventListener("click",()=>{
+    const hGlobal = habilidadesGlobales.find(g=>g.nombre===h.nombre)||h;
+    const costeMp = h.coste_mp ?? hGlobal.coste_mp ?? 0;
+
+    const row=document.createElement("div"); row.className="hab-item hab-item-clickable";
+    row.innerHTML=`
+      <div class="hab-item-left">
+        <div class="hab-nombre">${esc(h.nombre)}</div>
+        <div class="hab-formula">📐 ${esc(h.formula)}</div>
+      </div>
+      <div class="hab-item-right">
+        ${costeMp > 0 ? `<span class="hab-coste-mp">MP ${esc(costeMp)}</span>` : ""}
+        ${h.nombre!=="Ataque" && esDueno ? `<button class="gm-stat-del hab-olvidar" title="Olvidar habilidad">✕</button>` : ""}
+      </div>`;
+
+    // Click en la fila → abrir detalle
+    row.addEventListener("click", e => {
+      if (e.target.classList.contains("hab-olvidar")) return;
+      mostrarDetalleHabilidad(cont, h, p, esDueno);
+    });
+
+    // Botón olvidar
+    const btnOlv = row.querySelector(".hab-olvidar");
+    if (btnOlv) {
+      btnOlv.addEventListener("click", e => {
+        e.stopPropagation();
         enviar({tipo:"quitar_habilidad_personaje",nombre_personaje:p.nombre,nombre_habilidad:h.nombre});
       });
-      row.appendChild(btnOlv);
     }
+
     lista.appendChild(row);
   });
   cont.appendChild(lista);
+  cont._listaHabs = lista;
 
-  // Botón añadir habilidad
+  // ── Área de añadir habilidad ──
+  const addArea = document.createElement("div");
+  addArea.className = "hab-add-area";
   const btnAdd=document.createElement("button"); btnAdd.className="cmd-btn azul"; btnAdd.textContent="＋ Añadir habilidad";
   btnAdd.style.marginTop="8px";
-  cont.appendChild(btnAdd);
+  addArea.appendChild(btnAdd);
 
   const picker=document.createElement("div"); picker.className="ff-hab-picker oculto";
   const searchInput=document.createElement("input"); searchInput.className="gm-input"; searchInput.placeholder="Buscar habilidad...";
   picker.appendChild(searchInput);
   const pickerList=document.createElement("div");
   picker.appendChild(pickerList);
-  cont.appendChild(picker);
+  addArea.appendChild(picker);
+  cont.appendChild(addArea);
+  cont._addArea = addArea;
 
   function renderPicker(filtro=""){
     pickerList.innerHTML="";

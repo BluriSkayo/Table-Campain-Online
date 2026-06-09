@@ -25,14 +25,14 @@ tokens:
     personaje: Testeo
     stats:
       Defensa Mágica: 10
-      HP: 100
+      HP: 50
       HP_max: 100
       MP: 100
       MP_max: 100
       Magia: 20
     token_id: BluriSkayo_Testeo
-    x: 1830
-    y: 1230
+    x: 1950
+    y: 1290
   BluriSkayo_Víctima de Golpes:
     clase: Personaje de Test
     color: '#3498db'
@@ -51,11 +51,11 @@ tokens:
     personaje: Víctima de Golpes
     stats:
       Defensa Mágica: 10
-      HP: 90
+      HP: 60
       HP_max: 100
       MP: 100
       MP_max: 100
       Magia: 10
     token_id: BluriSkayo_Víctima de Golpes
-    x: 2010
-    y: 1230
+    x: 2070
+    y: 1350

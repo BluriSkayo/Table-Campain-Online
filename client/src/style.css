@@ -420,3 +420,181 @@ textarea:focus{border-color:var(--accent)}
 .btn-mapa-flotante.activo:hover {
   background: #2471a3;
 }
+/* ══════════════════════════════════════════════════════════════
+   PANEL DE DETALLE DE HABILIDAD
+══════════════════════════════════════════════════════════════ */
+
+/* Lista scrollable de habilidades en la ficha flotante */
+.hab-lista-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.hab-lista-scroll::-webkit-scrollbar { width: 4px; }
+.hab-lista-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Fila de habilidad clickeable */
+.hab-item-clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hab-item-clickable:hover { border-color: var(--blue); background: var(--bg2); }
+.hab-item-left  { flex: 1; min-width: 0; }
+.hab-item-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* Coste MP badge */
+.hab-coste-mp {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(41,128,185,.25);
+  color: #7bc8ff;
+  white-space: nowrap;
+}
+
+/* Área de añadir habilidad */
+.hab-add-area { margin-top: 4px; }
+
+/* ── Panel de detalle ────────────────────────────────────────── */
+.hab-detalle-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn .15s ease;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateX(8px); } to { opacity:1; transform:none; } }
+
+.hab-detalle-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.hab-detalle-back {
+  font-size: 20px;
+  color: var(--muted);
+  padding: 0 4px;
+  line-height: 1;
+}
+.hab-detalle-back:hover { color: var(--text); }
+.hab-detalle-titulo {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Info rows (EFECTO, BASE, MP) */
+.hab-detalle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hab-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--bg3);
+  border-radius: 7px;
+}
+.hab-info-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--muted);
+  min-width: 50px;
+}
+.hab-info-valor {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: monospace;
+  flex: 1;
+}
+.hab-detalle-desc {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 4px 2px;
+  line-height: 1.5;
+}
+
+/* ── Grillas ─────────────────────────────────────────────────── */
+.hab-grillas-wrap {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.hab-grilla-bloque {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.hab-grilla-titulo {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  color: #fff;
+}
+.hab-grilla-titulo.alcance { background: #e67e22; }
+.hab-grilla-titulo.zona    { background: #9b59b6; }
+
+.hab-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hab-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols, 11), 12px);
+  grid-auto-rows: 12px;
+  gap: 1px;
+  background: var(--bg0);
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  user-select: none;
+}
+
+.hab-grid-cell {
+  width: 12px;
+  height: 12px;
+  background: var(--bg3);
+  border-radius: 1px;
+  transition: background .08s;
+}
+
+.hab-grid-center {
+  background: rgba(255,255,255,0.35) !important;
+  border-radius: 2px;
+}
+
+.hab-grid-active {
+  border-radius: 1px;
+  opacity: .9;
+}
+
+.hab-grid-cell[style*="cursor: pointer"]:hover {
+  opacity: .75;
+  filter: brightness(1.3);
+}
+
+/* Coste MP editable en el detalle */
+.hab-coste-mp-input {
+  width: 54px !important;
+  padding: 3px 6px !important;
+  font-size: 12px !important;
+}
